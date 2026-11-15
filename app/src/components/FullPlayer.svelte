@@ -3,7 +3,7 @@
   // e uma barra de ponta a ponta embaixo. Rolando: fila, dispositivos, playlists.
   import { live, prefs, savePrefs } from '../lib/state.svelte';
   import { mediaControl, mediaSelect, spotifyStatus, spotifyApi, audioState, audioSetMaster } from '../lib/api';
-  import { fmtDuration } from '../lib/util';
+  import { fmtDuration, fmtTime, fmtWeekday } from '../lib/util';
   import Icon from './Icon.svelte';
   import WaveBar from './WaveBar.svelte';
   import Lyrics from './Lyrics.svelte';
@@ -14,6 +14,13 @@
   const source = $derived(m.sessions.find(s => s.id === m.active)?.app ?? '');
   let showLyrics = $state(false);
   let bgCtl = $state(false); // popover do desfoque do fundo
+
+  // horário no canto superior direito (atualiza a cada 10s; só os minutos aparecem)
+  let now = $state(new Date());
+  $effect(() => {
+    const t = setInterval(() => (now = new Date()), 10_000);
+    return () => clearInterval(t);
+  });
   let scroller: HTMLDivElement;
 
   // ---------- Spotify ----------
@@ -85,6 +92,10 @@
       {#key bg}<div class="bg" style="background-image:url({bg});--art-blur:{prefs.artBlur}px"></div>{/key}
     {/if}
     <div class="shade"></div>
+    <div class="clock" aria-label="Horário">
+      <span class="mono hm">{fmtTime.format(now)}</span>
+      <span class="wd">{fmtWeekday.format(now)}</span>
+    </div>
 
     <div class="stage">
       <div class="meta">
@@ -297,6 +308,14 @@
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; background: rgba(0, 0, 0, 0.25); }
   .chip :global(svg) { width: 14px; height: 14px; }
   .chip.on { color: var(--ink); background: var(--accent); border-color: transparent; }
+  /* à esquerda do X de fechar, que flutua no canto */
+  .clock {
+    position: absolute; top: 18px; right: 72px; z-index: 2; pointer-events: none;
+    display: flex; flex-direction: column; align-items: flex-end; line-height: 1;
+    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+  }
+  .hm { font-size: 34px; font-weight: 300; letter-spacing: -0.01em; }
+  .wd { font-size: 12px; color: var(--muted); text-transform: capitalize; margin-top: 6px; }
   .more {
     position: absolute; left: 50%; bottom: 6px; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px;
     background: transparent; border: 0; color: var(--faint); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
