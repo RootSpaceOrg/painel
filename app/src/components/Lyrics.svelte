@@ -11,14 +11,17 @@
   let lines = $state<{ t: number; text: string }[]>([]);
   let plain = $state('');
 
+  // As props vêm do objeto de mídia, que é trocado a cada segundo; o $derived só notifica quando
+  // a string muda de fato, então a busca roda uma vez por música (não a cada evento).
+  const key = $derived(`${artist}|${title}`);
   $effect(() => {
-    const key = `${artist}|${title}`;
+    key;
     status = 'loading';
     lines = [];
     let alive = true;
     untrack(() => fetchLyrics(artist, title, album, duration))
       .then(r => {
-        if (!alive || key !== `${artist}|${title}`) return;
+        if (!alive) return;
         if (!r) status = 'none';
         else if (r.instrumental) status = 'instrumental';
         else if (r.syncedLyrics) { lines = parseLrc(r.syncedLyrics); status = 'synced'; }
