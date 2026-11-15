@@ -30,7 +30,7 @@ export const ui = $state({
   settings: false,
 });
 
-export const prefs = $state({ dim: 0.35, blur: 18, seconds: false, wallUrl: '' });
+export const prefs = $state({ dim: 0.35, blur: 18, seconds: false, artBlur: 14, wallUrl: '' });
 
 export const live = $state({
   media: null as MediaState | null,
@@ -44,7 +44,7 @@ export const newWidget = (type: WidgetType, x: number, y: number, ww: number, h:
 export const newTab = (name: string): Tab => ({ id: uid(), name, widgets: [] });
 
 export const saveLayout = () => kvSet('layout', JSON.stringify(ui.tabs));
-export const savePrefs = () => kvSet('ui', JSON.stringify({ dim: prefs.dim, blur: prefs.blur, seconds: prefs.seconds }));
+export const savePrefs = () => kvSet('ui', JSON.stringify({ dim: prefs.dim, blur: prefs.blur, seconds: prefs.seconds, artBlur: prefs.artBlur }));
 
 export async function loadWallpaper() {
   if (prefs.wallUrl) URL.revokeObjectURL(prefs.wallUrl);
