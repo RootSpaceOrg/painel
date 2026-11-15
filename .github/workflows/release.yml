@@ -1,10 +1,13 @@
-# Gera o instalador do Painel num Windows do GitHub e publica o release.
-# Dispara ao subir uma tag vX.Y.Z (igual à versão em app/package.json). O app se atualiza por esses releases.
+# Reserva: gera o instalador num Windows do GitHub e publica o release de uma tag que já existe.
+# O caminho normal é `npm run release` (build local, com cache, bem mais rápido). Rode à mão: Actions → Release → Run workflow.
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag já existente (ex.: v0.2.7)'
+        required: true
 
 permissions:
   contents: write
@@ -12,8 +15,12 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -29,7 +36,7 @@ jobs:
       - name: Conferir versão da tag
         shell: bash
         working-directory: app
-        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+        run: test "v$(node -p "require('./package.json').version")" = "$TAG"
       - name: Checks
         shell: bash
         working-directory: app
@@ -47,4 +54,4 @@ jobs:
         run: |
           exe=$(ls app/src-tauri/target/release/bundle/nsis/*-setup.exe)
           # se o release já existe (publicado à mão), só troca o instalador
-          gh release create "$GITHUB_REF_NAME" "$exe" --title "Painel $GITHUB_REF_NAME" --generate-notes             || gh release upload "$GITHUB_REF_NAME" "$exe" --clobber
+          gh release create "$TAG" "$exe" --title "Painel $TAG" --generate-notes             || gh release upload "$TAG" "$exe" --clobber
