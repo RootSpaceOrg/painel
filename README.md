@@ -43,9 +43,10 @@ cd src-tauri && cargo test                # parser ICS
 
 ### Publicar uma versão
 
-`main` recebe PR de `develop`. Para lançar: suba a versão em `app/package.json` (`npm version X.Y.Z --no-git-tag-version`),
-faça o merge em `main` e crie a tag igual: `git tag vX.Y.Z && git push origin vX.Y.Z`. O workflow **Release** roda os checks,
-gera o instalador num Windows do GitHub e publica o release, e os Painéis instalados passam a oferecer a atualização.
+`main` recebe PR de `develop`. Para lançar: suba a versão em `app/package.json` (`npm version X.Y.Z --no-git-tag-version`)
+no PR, faça o merge em `main` e, com `main` atualizada nesta máquina, rode `cd app && npm run release`: checks, build local
+(com cache, ~1–2 min), tag e release no GitHub. Os Painéis instalados passam a oferecer a atualização.
+Sem a máquina de build? Crie a tag e rode o workflow **Release** à mão no GitHub (mais lento, compila do zero).
 
 - `src/lib/api.ts`: contrato UI ↔ Rust (todo comando/evento).
 - `src/widgets/`: um arquivo por widget + `registry.ts`. Novo widget = componente com prop `expanded` + uma linha no registro.
