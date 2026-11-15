@@ -44,4 +44,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" app/src-tauri/target/release/bundle/nsis/*-setup.exe --title "Painel $GITHUB_REF_NAME" --generate-notes
+        run: |
+          exe=$(ls app/src-tauri/target/release/bundle/nsis/*-setup.exe)
+          # se o release já existe (publicado à mão), só troca o instalador
+          gh release create "$GITHUB_REF_NAME" "$exe" --title "Painel $GITHUB_REF_NAME" --generate-notes             || gh release upload "$GITHUB_REF_NAME" "$exe" --clobber

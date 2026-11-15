@@ -12,7 +12,7 @@ import Mixer from './Mixer.svelte';
 export interface WidgetDef { label: string; comp: Component<{ expanded?: boolean }>; size: [number, number]; min: [number, number]; bare?: boolean }
 export const WIDGETS: Record<WidgetType, WidgetDef> = {
   clock: { label: 'Relógio', comp: Clock, size: [4, 3], min: [2, 2], bare: true },
-  media: { label: 'Tocando agora', comp: Media, size: [5, 3], min: [3, 2] },
+  media: { label: 'Tocando agora', comp: Media, size: [5, 3], min: [3, 2], bare: true },
   todo: { label: 'Tarefas', comp: Todo, size: [4, 5], min: [2, 3] },
   habits: { label: 'Metas do dia', comp: Habits, size: [4, 4], min: [2, 2] },
   agenda: { label: 'Agenda', comp: Agenda, size: [4, 5], min: [2, 3] },
