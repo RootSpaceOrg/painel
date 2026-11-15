@@ -5,6 +5,7 @@
   import Icon from '../components/Icon.svelte';
   import WaveBar from '../components/WaveBar.svelte';
   import FullPlayer from '../components/FullPlayer.svelte';
+  import PlaylistChip from '../components/PlaylistChip.svelte';
 
   let { expanded = false }: { expanded?: boolean } = $props();
   const m = $derived(live.media);
@@ -36,6 +37,7 @@
     <div class="info">
       <div class="title ellipsis">{m.title}</div>
       <div class="artist ellipsis muted">{m.artist}</div>
+      <div class="plc"><PlaylistChip /></div>
       <div class="wave-row">
         <WaveBar position={m.position} duration={m.duration} playing={m.playing} color={accent} onseek={m.duration ? seek : undefined} />
       </div>
@@ -56,6 +58,7 @@
   .compact { position: relative; isolation: isolate; display: flex; gap: 16px; height: 100%; align-items: center; min-width: 0; }
   .glow.sm { inset: -60px; filter: blur(46px) saturate(1.5); opacity: 0.32; transition: background-image 0.6s; }
   .wave-row { margin: 8px 0 2px; }
+  .plc { display: flex; min-width: 0; min-height: 0; }
   .art {
     height: 100%; max-height: 150px; aspect-ratio: 1; border-radius: 12px; overflow: hidden; flex: none;
     background: rgba(190, 240, 225, 0.06); display: grid; place-items: center; color: var(--faint);
