@@ -1,0 +1,47 @@
+# Gera o instalador do Painel num Windows do GitHub e publica o release.
+# Dispara ao subir uma tag vX.Y.Z (igual à versão em app/package.json). O app se atualiza por esses releases.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - name: Instalar
+        working-directory: app
+        run: npm ci --no-audit --no-fund
+      - name: Conferir versão da tag
+        shell: bash
+        working-directory: app
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - name: Checks
+        shell: bash
+        working-directory: app
+        run: |
+          npm run check
+          node scripts/util.check.ts
+          cd src-tauri && cargo test
+      - name: Gerar instalador
+        working-directory: app
+        run: npm run tauri build
+      - name: Publicar release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" app/src-tauri/target/release/bundle/nsis/*-setup.exe --title "Painel $GITHUB_REF_NAME" --generate-notes
