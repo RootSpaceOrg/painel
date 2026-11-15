@@ -43,6 +43,7 @@
     tab.widgets.splice(tab.widgets.indexOf(w), 1);
     saveLayout();
   }
+  const INTERACTIVE = 'button, input, select, textarea, a, [role=slider]';
   const expand = (w: Placed) => { if (!ui.editing) ui.expanded = w; };
 </script>
 
@@ -56,10 +57,11 @@
     <section class="card glass" class:bad={drag?.w === w && collides(w)} class:dragging={drag?.w === w}
       style="grid-column:{w.x + 1} / span {w.w};grid-row:{w.y + 1} / span {w.h}">
       {#if def.bare}
-        <div class="body click" role="button" tabindex="0" aria-label="Abrir {def.label}"
-          onclick={() => expand(w)} onkeydown={e => e.key === 'Enter' && expand(w)}>
+        <!-- sem cabeçalho: clicar em área vazia abre; controles internos continuam funcionando -->
+        <div class="body click" role="presentation" onclick={e => !(e.target as Element).closest(INTERACTIVE) && expand(w)}>
           <def.comp />
         </div>
+        <button class="ghost icon exp float" aria-label="Expandir {def.label}" onclick={() => expand(w)}><Icon name="expand" /></button>
       {:else}
         <header>
           <button class="title label" onclick={() => expand(w)}>{def.label}</button>
@@ -93,6 +95,8 @@
   .exp { width: 26px; height: 26px; opacity: 0; color: var(--faint); }
   .card:hover .exp { opacity: 1; }
   .exp :global(svg) { width: 13px; height: 13px; }
+  .float { position: absolute; top: 6px; right: 6px; z-index: 1; }
+  .exp:focus-visible { opacity: 1; }
   .body { flex: 1; min-height: 0; position: relative; }
   .click { cursor: pointer; outline-offset: 4px; border-radius: 8px; }
   .edit {

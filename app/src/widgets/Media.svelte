@@ -77,5 +77,5 @@
   .play:hover { background: var(--accent); filter: brightness(1.08); }
   .play:active, .ctrl .ghost:active { transform: scale(0.9); }
   .ctrl .play.round { border-radius: 50%; }
-  .glow { position: absolute; background-size: cover; background-position: center; z-index: -1; }
+  .glow { position: absolute; background-size: cover; background-position: center; z-index: -1; pointer-events: none; }
 </style>
