@@ -25,6 +25,7 @@
     repeat: 'M4 11V9.5A2.5 2.5 0 0 1 6.5 7H20l-3-3M20 13v1.5a2.5 2.5 0 0 1-2.5 2.5H4l3 3',
     lyrics: 'M4 6h16M4 10.5h11M4 15h16M4 19.5h8',
     down: 'M6 9l6 6 6-6',
+    video: 'M3.5 7h11v10h-11zM14.5 10.5l6-3.5v10l-6-3.5',
     image: 'M4 5h16v14H4zM4 16l5-5 4 4 2.5-2.5L20 17M15.5 9.5h.01',
   };
   let { name, filled = false }: { name: string; filled?: boolean } = $props();

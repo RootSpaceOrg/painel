@@ -40,11 +40,18 @@
     return d > 0 && d < 3 * 3600e3 ? `em ${relMinutes(d)}` : '';
   };
   // link de reunião no local/descrição (Meet, Zoom, Teams)
-  const MEET = /https:\/\/(?:meet\.google\.com|[\w.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')]+/i;
-  const meeting = (e: CalEvent) => (`${e.location} ${e.notes}`.match(MEET)?.[0] ?? '');
+  const MEET = /https:\/\/(?:meet\.google\.com|[\w.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')\\]+/i;
+  // Meet abre na conta da agenda do evento: reaproveita o authuser que o backend pôs no link do Google Agenda
+  const meeting = (e: CalEvent) => {
+    const m = `${e.location} ${e.notes}`.match(MEET)?.[0] ?? '';
+    if (!m || !/^https:\/\/meet\.google\.com\//i.test(m) || /[?&]authuser=/.test(m)) return m;
+    let user: string | null = null;
+    try { user = e.url ? new URL(e.url).searchParams.get('authuser') : null; } catch { /* link inválido: segue sem conta */ }
+    return user ? `${m}${m.includes('?') ? '&' : '?'}authuser=${encodeURIComponent(user)}` : m;
+  };
   const go = (url: string) => url && openUrl(url).catch(() => {});
-  // pequeno: abre direto no navegador; expandido: detalhes (local edita)
-  const pick = (e: CalEvent) => (expanded ? open(e) : go(e.url));
+  // pequeno: abre direto (reunião primeiro, senão a agenda); expandido: detalhes (local edita)
+  const pick = (e: CalEvent) => (expanded ? open(e) : go(meeting(e) || e.url));
 
   const timeLabel = (e: CalEvent) => (e.all_day ? 'dia todo' : fmtTime.format(e.start));
 
@@ -99,18 +106,22 @@
         <div class="label">{dayHeading(g.day)}</div>
         {#each g.items as e (e.id + g.day.getTime())}
           {@const st = status(e)}
-          {@const meet = st ? meeting(e) : ''}
-          {@const clickable = expanded || !!e.url}
+          {@const meet = meeting(e)}
+          {@const clickable = expanded || !!e.url || !!meet}
           <div class="ev" class:now={st === 'agora'}>
             <button class="evb" class:link={clickable} disabled={!clickable} onclick={() => pick(e)}
-              title={!expanded && e.url ? 'Abrir no Google Agenda' : undefined}>
+              title={expanded ? undefined : meet ? 'Entrar na reunião' : e.url ? 'Abrir no Google Agenda' : undefined}>
               <i class="bar" style="background:{e.color || 'var(--leaf)'}"></i>
               <span class="mono time">{timeLabel(e)}</span>
               <span class="grow ellipsis">{e.title}</span>
               {#if st}<span class="st">{st}</span>{/if}
-              {#if !expanded && e.url}<span class="ext"><Icon name="expand" /></span>{/if}
+              {#if !expanded && e.url && !meet}<span class="ext"><Icon name="expand" /></span>{/if}
             </button>
-            {#if meet}<button class="join" onclick={() => go(meet)}>Entrar</button>{/if}
+            {#if meet && st}
+              <button class="join" onclick={() => go(meet)}>Entrar</button>
+            {:else if meet}
+              <button class="ghost icon cam" aria-label="Entrar na reunião: {e.title}" title="Entrar na reunião" onclick={() => go(meet)}><Icon name="video" /></button>
+            {/if}
           </div>
         {:else}
           <div class="faint free">Livre pelo resto do dia</div>
@@ -194,6 +205,8 @@
   .join { padding: 2px 10px; font-size: 11px; border-radius: 999px; color: var(--ink); background: var(--teal); border: 0; flex: none; }
   .join:hover { background: var(--teal); filter: brightness(1.1); }
   .wrap { flex-wrap: wrap; }
+  .cam { width: 26px; height: 26px; color: var(--teal); flex: none; }
+  .cam :global(svg) { width: 15px; height: 15px; }
   .ev.now { background: rgba(127, 224, 208, 0.1); }
   .bar { width: 3px; align-self: stretch; border-radius: 2px; flex: none; }
   .time { font-size: 12px; color: var(--muted); width: 62px; flex: none; white-space: nowrap; }
