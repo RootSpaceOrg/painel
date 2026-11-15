@@ -1,4 +1,5 @@
 use crate::db::{self, Db};
+use base64::Engine;
 use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use rrule::{RRule, Tz, Unvalidated};
 use serde::Serialize;
@@ -15,6 +16,9 @@ pub struct Ev {
     start: i64,
     end: i64,
     all_day: bool,
+    url: String,          // propriedade URL do ICS (quando existe)
+    inst: Option<String>, // ocorrência original de evento recorrente (sufixo do eid do Google)
+    link: String,         // link para abrir no navegador ('' = nenhum)
 }
 
 #[derive(Default)]
@@ -38,6 +42,7 @@ pub struct CalEvent {
     all_day: bool,
     color: String,
     feed: Option<i64>,
+    url: String, // abre o evento no navegador ('' = sem link)
 }
 
 #[derive(Serialize)]
@@ -162,6 +167,7 @@ struct Raw {
     exdates: Vec<DateTime<Tz>>,
     recurrence_id: Option<DateTime<Tz>>,
     cancelled: bool,
+    url: String,
 }
 
 fn add_days(dt: &DateTime<Tz>, days: i64) -> i64 {
@@ -217,6 +223,7 @@ pub fn parse_ics(text: &str, from: i64, to: i64) -> Vec<Ev> {
                     "EXDATE" => r.exdates.extend(p.value.split(',').filter_map(|v| parse_dt(v, tz)).map(|x| x.0)),
                     "RECURRENCE-ID" => r.recurrence_id = parse_dt(&p.value, tz).map(|x| x.0),
                     "STATUS" => r.cancelled = p.value.eq_ignore_ascii_case("CANCELLED"),
+                    "URL" => r.url = p.value.clone(),
                     _ => {}
                 }
             }
@@ -279,7 +286,16 @@ pub fn parse_ics(text: &str, from: i64, to: i64) -> Vec<Ev> {
         if r.cancelled {
             continue;
         }
+        // Google identifica cada ocorrência por <id>_<início original em UTC> (ou _<data> no dia inteiro)
+        let stamp = |d: &DateTime<Tz>| {
+            if all_day { d.format("%Y%m%d").to_string() } else { d.with_timezone(&Utc).format("%Y%m%dT%H%M%SZ").to_string() }
+        };
         for s in starts {
+            let inst = match (&r.rrule, r.recurrence_id) {
+                (_, Some(rid)) => Some(stamp(&rid)),
+                (Some(_), None) => Some(stamp(&s)),
+                _ => None,
+            };
             let (st, en) = (s.timestamp_millis(), end_of(&s));
             if en.max(st + 1) > from && st < to {
                 out.push(Ev {
@@ -290,11 +306,58 @@ pub fn parse_ics(text: &str, from: i64, to: i64) -> Vec<Ev> {
                     start: st,
                     end: en,
                     all_day,
+                    url: r.url.clone(),
+                    inst,
+                    link: String::new(),
                 });
             }
         }
     }
     out
+}
+
+// ---------------- links ----------------
+
+fn pct_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// E-mail/ID da agenda a partir do link ICS do Google (…/calendar/ical/<agenda>/private-…/basic.ics).
+fn google_calendar(feed_url: &str) -> Option<String> {
+    if !feed_url.contains("calendar.google.com/calendar/ical/") {
+        return None;
+    }
+    let enc = feed_url.split("/calendar/ical/").nth(1)?.split('/').next()?;
+    Some(pct_decode(enc))
+}
+
+/// Link do evento: Google (eid) quando o feed é do Google; senão a propriedade URL do ICS.
+fn event_link(cal: Option<&str>, ev: &Ev) -> String {
+    if let (Some(cal), Some(id)) = (cal, ev.uid.strip_suffix("@google.com")) {
+        let id = match &ev.inst {
+            Some(i) => format!("{id}_{i}"),
+            None => id.to_string(),
+        };
+        let eid = base64::engine::general_purpose::STANDARD_NO_PAD.encode(format!("{id} {cal}"));
+        // authuser escolhe a conta certa quando há várias logadas (agendas secundárias não são contas)
+        let user = if cal.ends_with("calendar.google.com") { String::new() } else { format!("&authuser={cal}") };
+        return format!("https://calendar.google.com/calendar/event?eid={eid}{user}");
+    }
+    if ev.url.starts_with("https://") || ev.url.starts_with("http://") { ev.url.clone() } else { String::new() }
 }
 
 // ---------------- sync ----------------
@@ -319,7 +382,11 @@ pub fn sync_all(app: &AppHandle) {
         let entry = m.entry(id).or_default();
         match res {
             Ok(text) if text.contains("BEGIN:VCALENDAR") => {
+                let cal = google_calendar(&url);
                 entry.events = parse_ics(&text, from, to);
+                for ev in entry.events.iter_mut() {
+                    ev.link = event_link(cal.as_deref(), ev);
+                }
                 entry.error = None;
                 entry.last_sync = Some(now);
             }
@@ -356,6 +423,7 @@ pub fn agenda(db: State<Db>, cache: State<Cache>, from: i64, to: i64) -> Result<
             all_day,
             color: String::new(),
             feed: None,
+            url: String::new(),
         })
         .collect();
     let colors: HashMap<i64, String> = db::feeds_raw(&c).unwrap_or_default().into_iter().map(|f| (f.0, f.3)).collect();
@@ -375,6 +443,7 @@ pub fn agenda(db: State<Db>, cache: State<Cache>, from: i64, to: i64) -> Result<
                 all_day: ev.all_day,
                 color: color.clone(),
                 feed: Some(*fid),
+                url: ev.link.clone(),
             });
         }
     }
@@ -441,6 +510,28 @@ END:VCALENDAR\r\n";
 
         assert!(!evs.iter().any(|e| e.uid == "gone"));
         assert!(!evs.iter().any(|e| e.title == "alarme"));
+    }
+
+    #[test]
+    fn google_links() {
+        use base64::Engine;
+        let feed = "https://calendar.google.com/calendar/ical/fulano%40gmail.com/private-abc/basic.ics";
+        let cal = super::google_calendar(feed);
+        assert_eq!(cal.as_deref(), Some("fulano@gmail.com"));
+        let ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:abc123@google.com\r\nSUMMARY:Um\r\nDTSTART:20260310T130000Z\r\nDTEND:20260310T140000Z\r\nEND:VEVENT\r\n\
+BEGIN:VEVENT\r\nUID:rec9@google.com\r\nSUMMARY:Daily\r\nDTSTART:20260302T120000Z\r\nDTEND:20260302T123000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n\
+BEGIN:VEVENT\r\nUID:outro\r\nSUMMARY:X\r\nURL:https://exemplo.com/ev\r\nDTSTART:20260310T130000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+        let evs = parse_ics(ics, ms("2026-03-01T00:00:00Z"), ms("2026-04-01T00:00:00Z"));
+        let b64 = |s: &str| base64::engine::general_purpose::STANDARD_NO_PAD.encode(s);
+        let one = evs.iter().find(|e| e.uid == "abc123@google.com").unwrap();
+        assert_eq!(super::event_link(cal.as_deref(), one),
+            format!("https://calendar.google.com/calendar/event?eid={}&authuser=fulano@gmail.com", b64("abc123 fulano@gmail.com")));
+        let second = evs.iter().filter(|e| e.uid == "rec9@google.com").nth(1).unwrap();
+        assert!(super::event_link(cal.as_deref(), second).contains(&b64("rec9_20260303T120000Z fulano@gmail.com")));
+        let other = evs.iter().find(|e| e.uid == "outro").unwrap();
+        assert_eq!(super::event_link(None, other), "https://exemplo.com/ev");
+        let group = super::event_link(Some("x@group.calendar.google.com"), one);
+        assert!(!group.contains("authuser"));
     }
 
     #[test]

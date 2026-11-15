@@ -69,8 +69,10 @@ export interface CalEvent {
   all_day: boolean;      // dia inteiro: start = 00:00 local do dia, end = 00:00 do dia seguinte ao último
   color: string;         // cor do feed ('' para eventos locais)
   feed: number | null;
+  url: string;           // abre no navegador (Google Agenda ou URL do ICS); '' = sem link
 }
 export interface Feed { id: number; name: string; url: string; color: string; error: string | null; last_sync: number | null }
+export const openUrl = (url: string) => invoke<void>('open_url', { url });
 export const agenda = (from: number, to: number) => invoke<CalEvent[]>('agenda', { from, to }); // ordenado por start
 export const eventSave = (event: { id?: number; title: string; start: number; end: number; all_day: boolean; notes: string; location: string }) =>
   invoke<number>('event_save', { event });

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { agenda, eventSave, eventDelete, onAgendaChanged, type CalEvent } from '../lib/api';
+  import { agenda, eventSave, eventDelete, onAgendaChanged, openUrl, type CalEvent } from '../lib/api';
   import { startOfDay, addDays, dayKey, parseDay, dayHeading, fmtTime, relMinutes } from '../lib/util';
   import { ui } from '../lib/state.svelte';
   import Icon from '../components/Icon.svelte';
@@ -39,6 +39,13 @@
     const d = e.start - now;
     return d > 0 && d < 3 * 3600e3 ? `em ${relMinutes(d)}` : '';
   };
+  // link de reunião no local/descrição (Meet, Zoom, Teams)
+  const MEET = /https:\/\/(?:meet\.google\.com|[\w.-]*zoom\.us|teams\.microsoft\.com|teams\.live\.com)\/[^\s<>"')]+/i;
+  const meeting = (e: CalEvent) => (`${e.location} ${e.notes}`.match(MEET)?.[0] ?? '');
+  const go = (url: string) => url && openUrl(url).catch(() => {});
+  // pequeno: abre direto no navegador; expandido: detalhes (local edita)
+  const pick = (e: CalEvent) => (expanded ? open(e) : go(e.url));
+
   const timeLabel = (e: CalEvent) => (e.all_day ? 'dia todo' : fmtTime.format(e.start));
 
   // ---------- formulário (eventos locais) ----------
@@ -92,12 +99,19 @@
         <div class="label">{dayHeading(g.day)}</div>
         {#each g.items as e (e.id + g.day.getTime())}
           {@const st = status(e)}
-          <button class="ev" class:now={st === 'agora'} onclick={() => expanded && open(e)} tabindex={expanded ? 0 : -1}>
-            <i class="bar" style="background:{e.color || 'var(--leaf)'}"></i>
-            <span class="mono time">{timeLabel(e)}</span>
-            <span class="grow ellipsis">{e.title}</span>
-            {#if st}<span class="st">{st}</span>{/if}
-          </button>
+          {@const meet = st ? meeting(e) : ''}
+          {@const clickable = expanded || !!e.url}
+          <div class="ev" class:now={st === 'agora'}>
+            <button class="evb" class:link={clickable} disabled={!clickable} onclick={() => pick(e)}
+              title={!expanded && e.url ? 'Abrir no Google Agenda' : undefined}>
+              <i class="bar" style="background:{e.color || 'var(--leaf)'}"></i>
+              <span class="mono time">{timeLabel(e)}</span>
+              <span class="grow ellipsis">{e.title}</span>
+              {#if st}<span class="st">{st}</span>{/if}
+              {#if !expanded && e.url}<span class="ext"><Icon name="expand" /></span>{/if}
+            </button>
+            {#if meet}<button class="join" onclick={() => go(meet)}>Entrar</button>{/if}
+          </div>
         {:else}
           <div class="faint free">Livre pelo resto do dia</div>
         {/each}
@@ -120,6 +134,14 @@
           <div class="muted">{dayHeading(new Date(viewing.start))} · {viewing.all_day ? 'dia todo' : `${fmtTime.format(viewing.start)} – ${fmtTime.format(viewing.end)}`}</div>
           {#if viewing.location}<div class="muted">📍 {viewing.location}</div>{/if}
           {#if viewing.notes}<div class="notes scroll">{viewing.notes}</div>{/if}
+          <div class="row wrap">
+            {#if meeting(viewing)}<button class="primary" onclick={() => viewing && go(meeting(viewing))}>Entrar na reunião</button>{/if}
+            {#if viewing.url}
+              <button class="ghost" onclick={() => viewing && go(viewing.url)}>
+                <Icon name="calendar" /> {viewing.url.includes('calendar.google.com') ? 'Abrir no Google Agenda' : 'Abrir no navegador'}
+              </button>
+            {/if}
+          </div>
         </div>
       {/if}
       <form class="glass pane col" onsubmit={e => { e.preventDefault(); save(); }}>
@@ -158,12 +180,20 @@
   .list { height: 100%; display: flex; flex-direction: column; gap: 12px; }
   .day { display: flex; flex-direction: column; gap: 3px; }
   .day .label { margin-bottom: 3px; }
-  .ev {
-    display: flex; align-items: center; gap: 10px; text-align: left; padding: 5px 8px 5px 0;
+  .ev { display: flex; align-items: center; gap: 6px; border-radius: 8px; min-width: 0; }
+  .evb {
+    flex: 1; display: flex; align-items: center; gap: 10px; text-align: left; padding: 5px 8px 5px 0;
     background: transparent; border: 0; border-radius: 8px; min-width: 0; cursor: default;
   }
-  .full .ev { cursor: pointer; }
-  .ev:hover { background: rgba(190, 240, 225, 0.05); }
+  .evb:disabled { opacity: 1; }
+  .evb.link { cursor: pointer; }
+  .evb.link:hover { background: rgba(190, 240, 225, 0.06); }
+  .ext { display: grid; color: var(--faint); opacity: 0; transition: opacity 0.15s; }
+  .ext :global(svg) { width: 12px; height: 12px; }
+  .evb:hover .ext { opacity: 1; }
+  .join { padding: 2px 10px; font-size: 11px; border-radius: 999px; color: var(--ink); background: var(--teal); border: 0; flex: none; }
+  .join:hover { background: var(--teal); filter: brightness(1.1); }
+  .wrap { flex-wrap: wrap; }
   .ev.now { background: rgba(127, 224, 208, 0.1); }
   .bar { width: 3px; align-self: stretch; border-radius: 2px; flex: none; }
   .time { font-size: 12px; color: var(--muted); width: 62px; flex: none; white-space: nowrap; }

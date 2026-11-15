@@ -51,6 +51,7 @@ pub fn run() {
             audio::audio_state, audio::audio_set_master, audio::audio_set_master_mute,
             audio::audio_set_session, audio::audio_set_session_mute, audio::audio_set_default,
             window::monitors_list, window::window_get, window::window_apply,
+            window::open_url,
             window::wallpaper_set, window::wallpaper_get, window::wallpaper_clear,
             spotify::spotify_status, spotify::spotify_set_client_id, spotify::spotify_connect,
             spotify::spotify_disconnect, spotify::spotify_api,
