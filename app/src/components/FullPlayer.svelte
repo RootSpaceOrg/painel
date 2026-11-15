@@ -1,7 +1,7 @@
 <script lang="ts">
   // Player em tela cheia. Topo: fundo com foto do artista (ou capa) em blur escuro, título, letra opcional à direita
   // e uma barra de ponta a ponta embaixo. Rolando: fila, dispositivos, playlists.
-  import { live } from '../lib/state.svelte';
+  import { live, prefs, savePrefs } from '../lib/state.svelte';
   import { mediaControl, mediaSelect, spotifyStatus, spotifyApi, audioState, audioSetMaster } from '../lib/api';
   import { fmtDuration } from '../lib/util';
   import Icon from './Icon.svelte';
@@ -13,6 +13,7 @@
   const accent = $derived(live.artColor || 'var(--teal)');
   const source = $derived(m.sessions.find(s => s.id === m.active)?.app ?? '');
   let showLyrics = $state(false);
+  let bgCtl = $state(false); // popover do desfoque do fundo
   let scroller: HTMLDivElement;
 
   // ---------- Spotify ----------
@@ -81,7 +82,7 @@
 <div class="fp" bind:this={scroller} style="--accent:{accent}">
   <section class="hero" class:lyr={showLyrics}>
     {#if bg}
-      {#key bg}<div class="bg" style="background-image:url({bg})"></div>{/key}
+      {#key bg}<div class="bg" style="background-image:url({bg});--art-blur:{prefs.artBlur}px"></div>{/key}
     {/if}
     <div class="shade"></div>
 
@@ -146,6 +147,19 @@
       </div>
 
       <div class="side-r">
+        <div class="bgctl">
+          <button class="chip" class:on={bgCtl} aria-expanded={bgCtl} onclick={() => (bgCtl = !bgCtl)}>
+            <Icon name="image" /> Fundo
+          </button>
+          {#if bgCtl}
+            <div class="pop glass">
+              <label class="f"><span>Desfoque do fundo · {prefs.artBlur}px</span>
+                <input type="range" min="0" max="40" step="1" bind:value={prefs.artBlur} style="--p:{(prefs.artBlur / 40) * 100}"
+                  onchange={savePrefs} aria-label="Desfoque do fundo" />
+              </label>
+            </div>
+          {/if}
+        </div>
         <button class="chip" class:on={showLyrics} aria-pressed={showLyrics} onclick={() => (showLyrics = !showLyrics)}>
           <Icon name="lyrics" /> Letra
         </button>
@@ -217,7 +231,7 @@
   .hero { position: relative; isolation: isolate; height: 100%; min-height: 460px; display: flex; flex-direction: column; overflow: hidden; }
   .bg {
     position: absolute; inset: -30px; z-index: -2; background-size: cover; background-position: center 25%;
-    filter: blur(14px) brightness(0.5) saturate(1.15); transform: scale(1.04);
+    filter: blur(var(--art-blur, 14px)) brightness(0.5) saturate(1.15); transform: scale(1.04);
     animation: fadein 0.8s ease-out;
   }
   @keyframes fadein { from { opacity: 0; } }
@@ -270,7 +284,13 @@
   .play.round { border-radius: 50%; }
   .ctrl button:active { transform: scale(0.9); }
   .liked { color: var(--blossom); }
-  .side-r { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
+  .side-r { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+  .bgctl { position: relative; }
+  .pop {
+    position: absolute; bottom: calc(100% + 12px); right: 0; width: 240px; padding: 14px 16px; z-index: 5;
+    background: var(--glass-strong);
+  }
+  .f { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--muted); }
   .vol { display: flex; align-items: center; gap: 8px; color: var(--muted); width: 140px; }
   .vol :global(svg) { width: 18px; height: 18px; flex: none; }
   .vol input { flex: 1; }
