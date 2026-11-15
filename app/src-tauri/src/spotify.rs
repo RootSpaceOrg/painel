@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager};
 const PORT: u16 = 43821;
 const REDIRECT: &str = "http://127.0.0.1:43821/callback";
 const SCOPES: &str = "user-read-playback-state user-modify-playback-state user-read-currently-playing user-library-read \
-user-library-modify playlist-read-private playlist-read-collaborative";
+user-library-modify playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private";
 
 #[derive(Serialize, Deserialize)]
 struct Tokens {
