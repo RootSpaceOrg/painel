@@ -177,3 +177,13 @@ pub fn wallpaper_clear(app: AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Abre um link no navegador padrão. Só https (fronteira: o texto vem de feeds de terceiros).
+#[tauri::command]
+pub fn open_url(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") || url.chars().any(|c| c.is_whitespace() || c == '"') {
+        return Err("Link inválido.".into());
+    }
+    std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", &url]).spawn().map_err(|e| e.to_string())?;
+    Ok(())
+}
