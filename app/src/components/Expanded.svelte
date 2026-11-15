@@ -7,7 +7,7 @@
   const def = $derived(WIDGETS[w.type]);
 </script>
 
-<div class="overlay" role="presentation" onpointerdown={e => e.target === e.currentTarget && (ui.expanded = null)}>
+<div class="overlay" class:imm={def.immersive} role="presentation" onpointerdown={e => e.target === e.currentTarget && (ui.expanded = null)}>
   <div class="panel glass" role="dialog" aria-modal="true" aria-label={def.label}>
     <header>
       <span class="label">{def.label}</span>
@@ -25,6 +25,12 @@
   .panel { display: flex; flex-direction: column; min-height: 0; padding: 18px 26px 26px; background: var(--glass-strong); animation: rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
   header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .body { flex: 1; min-height: 0; position: relative; }
+  /* imersivo (player): ocupa a tela toda, sem cabeçalho; o X flutua por cima */
+  .imm { padding: 8px; }
+  .imm .panel { padding: 0; overflow: hidden; }
+  .imm header { position: absolute; top: 14px; right: 16px; left: auto; margin: 0; z-index: 5; }
+  .imm header .label { display: none; }
+  .imm .panel { position: relative; }
   @keyframes fade { from { opacity: 0; } }
   @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(0.985); } }
   @media (prefers-reduced-motion: reduce) { .overlay, .panel { animation: none; } }
