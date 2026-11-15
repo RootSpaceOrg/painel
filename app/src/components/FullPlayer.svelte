@@ -308,10 +308,10 @@
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; background: rgba(0, 0, 0, 0.25); }
   .chip :global(svg) { width: 14px; height: 14px; }
   .chip.on { color: var(--ink); background: var(--accent); border-color: transparent; }
-  /* à esquerda do X de fechar, que flutua no canto */
+  /* canto superior esquerdo, alinhado ao conteúdo */
   .clock {
-    position: absolute; top: 18px; right: 72px; z-index: 2; pointer-events: none;
-    display: flex; flex-direction: column; align-items: flex-end; line-height: 1;
+    position: absolute; top: 22px; left: 48px; z-index: 2; pointer-events: none;
+    display: flex; flex-direction: column; align-items: flex-start; line-height: 1;
     text-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
   }
   .hm { font-size: 34px; font-weight: 300; letter-spacing: -0.01em; }
