@@ -1,7 +1,8 @@
 <script lang="ts">
-  // Player em tela cheia. Topo: herói (capa grande à direita ou letra 50/50). Rolando: fila, dispositivos, playlists.
+  // Player em tela cheia. Topo: fundo com foto do artista (ou capa) em blur escuro, título, letra opcional à direita
+  // e uma barra de ponta a ponta embaixo. Rolando: fila, dispositivos, playlists.
   import { live } from '../lib/state.svelte';
-  import { mediaControl, mediaSelect, spotifyStatus, spotifyApi } from '../lib/api';
+  import { mediaControl, mediaSelect, spotifyStatus, spotifyApi, audioState, audioSetMaster } from '../lib/api';
   import { fmtDuration } from '../lib/util';
   import Icon from './Icon.svelte';
   import WaveBar from './WaveBar.svelte';
@@ -16,7 +17,7 @@
   // ---------- Spotify ----------
   type Img = { url: string }[];
   let sp = $state({
-    on: false, err: '', liked: null as boolean | null, uri: '', shuffle: false, repeat: 'off',
+    on: false, err: '', liked: null as boolean | null, uri: '', shuffle: false, repeat: 'off', bg: '', artistId: '',
     queue: [] as any[], playlists: [] as any[], devices: [] as any[],
   });
   // cada chamada é independente: uma falhar não esvazia as outras
@@ -30,6 +31,14 @@
     sp.uri = pl?.item?.uri ?? '';
     sp.shuffle = !!pl?.shuffle_state;
     sp.repeat = pl?.repeat_state ?? 'off';
+    // fundo: foto do artista > capa do álbum em alta > capa do player (SMTC)
+    const artistId = pl?.item?.artists?.[0]?.id ?? '';
+    const albumImg = pl?.item?.album?.images?.[0]?.url ?? '';
+    if (artistId !== sp.artistId || !sp.bg) {
+      sp.artistId = artistId;
+      const art = artistId ? await safe(spotifyApi('GET', `/artists/${artistId}`), null) : null;
+      sp.bg = art?.images?.[0]?.url || albumImg;
+    }
     // /me/tracks foi desativado pela Spotify (403); a biblioteca agora é /me/library com URIs
     sp.liked = sp.uri ? ((await safe(spotifyApi<boolean[]>('GET', `/me/library/contains?uris=${sp.uri}`), [null as any]))[0] ?? null) : null;
     sp.queue = ((await safe(spotifyApi('GET', '/me/player/queue'), null))?.queue ?? []).slice(0, 20);
@@ -58,49 +67,65 @@
   const transfer = (id: string) => act(spotifyApi('PUT', '/me/player', { device_ids: [id], play: true }));
   const img = (i: Img | undefined, small = false) => (i?.length ? i[small ? i.length - 1 : 0].url : '');
   const artists = (t: any) => t.artists?.map((a: any) => a.name).join(', ') ?? t.show?.name ?? '';
+  const bg = $derived(sp.bg || live.art);
+
+  // volume geral do sistema (mesmo do widget Volume)
+  let vol = $state<number | null>(null);
+  $effect(() => { audioState().then(a => (vol = a.master)).catch(() => {}); });
+  const setVol = (v: number) => { vol = v; audioSetMaster(v).catch(() => {}); };
+
   const nice = (e: string) => (e.includes('403') ? 'A Spotify recusou um comando (alguns exigem Premium).' : e);
 </script>
 
 <div class="fp" bind:this={scroller} style="--accent:{accent}">
   <section class="hero" class:lyr={showLyrics}>
-    {#if live.art}<div class="ambient" style="background-image:url({live.art})"></div>{/if}
+    {#if bg}
+      {#key bg}<div class="bg" style="background-image:url({bg})"></div>{/key}
+    {/if}
+    <div class="shade"></div>
 
-    <div class="left">
-      <div class="top row">
-        {#if source}<span class="label">Tocando no {source}</span>{/if}
-        {#if m.sessions.length > 1}
-          <span class="grow"></span>
-          {#each m.sessions as s}
+    <div class="stage">
+      <div class="meta">
+        <div class="top row">
+          {#if source}<span class="label">Tocando no {source}</span>{/if}
+          {#each m.sessions.length > 1 ? m.sessions : [] as s}
             <button class="chip" class:on={s.id === m.active} onclick={() => mediaSelect(s.id)}>{s.app}</button>
           {/each}
-        {/if}
-      </div>
-
-      <div class="meta">
-        {#if showLyrics && live.art}<img class="mini-art" src={live.art} alt="" />{/if}
-        <div class="grow">
-          <h1>{m.title}</h1>
-          <p class="artist">{m.artist}</p>
-          {#if m.album}<p class="album faint">{m.album}</p>{/if}
         </div>
+        <h1>{m.title}</h1>
+        <p class="artist">{m.artist}</p>
+        {#if m.album}<p class="album">{m.album}</p>{/if}
       </div>
+      {#if showLyrics}
+        <div class="lyrics">
+          <Lyrics artist={m.artist} title={m.title} album={m.album} duration={m.duration} position={m.position} playing={m.playing} />
+        </div>
+      {/if}
+    </div>
 
-      <div class="deck">
-        <div class="row actions">
-          {#if sp.on && sp.uri}
-            <button class="ghost icon" class:liked={sp.liked} aria-label={sp.liked ? 'Remover das curtidas' : 'Curtir'} onclick={toggleLike}>
-              <Icon name="heart" filled={!!sp.liked} />
-            </button>
-          {/if}
-          <span class="grow"></span>
-          <button class="chip" class:on={showLyrics} aria-pressed={showLyrics} onclick={() => (showLyrics = !showLyrics)}>
-            <Icon name="lyrics" /> Letra
+    <!-- barra de ponta a ponta -->
+    <div class="bar">
+      <div class="now">
+        {#if live.art}<img class="thumb" src={live.art} alt="" />{/if}
+        <div class="nt">
+          <span class="ellipsis">{m.title}</span>
+          <span class="ellipsis faint">{m.artist}</span>
+        </div>
+        {#if sp.on && sp.uri}
+          <button class="ghost icon" class:liked={sp.liked} aria-label={sp.liked ? 'Remover das curtidas' : 'Curtir'} onclick={toggleLike}>
+            <Icon name="heart" filled={!!sp.liked} />
           </button>
-        </div>
-        {#if m.duration}
-          <WaveBar thick position={m.position} duration={m.duration} playing={m.playing} color={accent} onseek={s => mediaControl('seek', s)} />
-          <div class="row between mono faint t"><span>{fmtDuration(m.position)}</span><span>{fmtDuration(m.duration)}</span></div>
         {/if}
+      </div>
+
+      <div class="center">
+        <div class="track">
+          <span class="mono t">{fmtDuration(m.position)}</span>
+          {#if m.duration}
+            <WaveBar thick position={m.position} duration={m.duration} playing={m.playing} color={accent} onseek={s => mediaControl('seek', s)} />
+          {:else}<span class="grow"></span>{/if}
+          <span class="mono t">{m.duration ? fmtDuration(m.duration) : ''}</span>
+        </div>
         <div class="ctrl">
           {#if sp.on}
             <button class="ghost icon side" class:act={sp.shuffle} aria-label="Aleatório" aria-pressed={sp.shuffle} onclick={toggleShuffle}><Icon name="shuffle" /></button>
@@ -117,14 +142,19 @@
           {/if}
         </div>
       </div>
-    </div>
 
-    <div class="right">
-      {#if showLyrics}
-        <Lyrics artist={m.artist} title={m.title} album={m.album} duration={m.duration} position={m.position} playing={m.playing} />
-      {:else if live.art}
-        <img class="cover" src={live.art} alt="Capa de {m.album || m.title}" />
-      {/if}
+      <div class="side-r">
+        <button class="chip" class:on={showLyrics} aria-pressed={showLyrics} onclick={() => (showLyrics = !showLyrics)}>
+          <Icon name="lyrics" /> Letra
+        </button>
+        {#if vol !== null}
+          <div class="vol">
+            <Icon name="volume" />
+            <input type="range" min="0" max="100" value={Math.round(vol * 100)} style="--p:{vol * 100}" aria-label="Volume geral"
+              oninput={e => setVol(+e.currentTarget.value / 100)} />
+          </div>
+        {/if}
+      </div>
     </div>
 
     <button class="more" onclick={() => scroller.scrollTo({ top: scroller.clientHeight, behavior: 'smooth' })}>
@@ -179,70 +209,82 @@
 </div>
 
 <style>
-  .fp { height: 100%; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; margin-right: -10px; padding-right: 10px; }
+  .fp { height: 100%; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
 
   /* ---------- herói ---------- */
-  .hero {
-    position: relative; isolation: isolate; height: 100%; min-height: 420px;
-    display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; padding-bottom: 36px;
+  .hero { position: relative; isolation: isolate; height: 100%; min-height: 460px; display: flex; flex-direction: column; overflow: hidden; }
+  .bg {
+    position: absolute; inset: -30px; z-index: -2; background-size: cover; background-position: center 25%;
+    filter: blur(14px) brightness(0.5) saturate(1.15); transform: scale(1.04);
+    animation: fadein 0.8s ease-out;
   }
-  .hero.lyr { grid-template-columns: 1fr 1fr; }
-  .ambient {
-    position: absolute; inset: -40px; z-index: -1; background-size: cover; background-position: center;
-    filter: blur(90px) saturate(1.5); opacity: 0.3; pointer-events: none;
-    mask: radial-gradient(closest-side, #000 55%, transparent); /* sem borda retangular */
+  @keyframes fadein { from { opacity: 0; } }
+  /* escurece à esquerda (texto) e embaixo (barra), como na referência */
+  .shade {
+    position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(5, 14, 16, 0.85) 0%, rgba(5, 14, 16, 0.35) 45%, rgba(5, 14, 16, 0.15) 100%),
+      linear-gradient(0deg, rgba(5, 14, 16, 0.92) 0%, rgba(5, 14, 16, 0.5) 22%, transparent 45%);
   }
-  .left { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  .top { min-height: 28px; flex-wrap: wrap; gap: 6px; }
-  .meta { flex: 1; display: flex; align-items: center; gap: 18px; min-height: 0; }
-  h1 { font-size: clamp(28px, 4.4vw, 54px); font-weight: 300; line-height: 1.05; margin: 0 0 10px; letter-spacing: -0.01em;
-    display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .lyr h1 { font-size: clamp(22px, 2.6vw, 34px); }
-  .artist { font-size: 18px; margin: 0; color: var(--accent); }
-  .album { margin: 4px 0 0; font-size: 14px; }
-  .mini-art { width: 120px; height: 120px; border-radius: 14px; object-fit: cover; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); flex: none; }
-  .deck { display: flex; flex-direction: column; gap: 8px; }
-  .actions { min-height: 36px; }
-  .between { justify-content: space-between; }
-  .t { font-size: 12px; }
-  .ctrl { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 4px; }
-  .ctrl .icon { width: 44px; height: 44px; }
-  .ctrl :global(svg) { width: 22px; height: 22px; }
+  .stage { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; padding: 40px 48px 8px; }
+  .lyr .stage { grid-template-columns: 1fr 1fr; }
+  .meta { display: flex; flex-direction: column; justify-content: center; min-width: 0; max-width: 640px; }
+  .top { flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  h1 {
+    font-size: clamp(34px, 5vw, 68px); font-weight: 300; line-height: 1.02; margin: 0 0 12px; letter-spacing: -0.015em;
+    text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .lyr h1 { font-size: clamp(28px, 3.4vw, 46px); }
+  .artist { font-size: 20px; margin: 0; color: var(--accent); }
+  .album { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+  .lyrics { min-height: 0; }
+
+  .bar {
+    display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 2.2fr) minmax(200px, 1fr); align-items: center; gap: 28px;
+    padding: 16px 48px 34px;
+  }
+  .now { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .thumb { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; flex: none; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45); }
+  .nt { display: flex; flex-direction: column; min-width: 0; font-size: 14px; }
+  .now .icon :global(svg) { width: 20px; height: 20px; }
+  .center { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .track { display: flex; align-items: center; gap: 14px; }
+  .t { font-size: 12px; color: var(--muted); min-width: 36px; text-align: center; }
+  .ctrl { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .ctrl .icon { width: 42px; height: 42px; }
+  .ctrl :global(svg) { width: 20px; height: 20px; }
   .side { color: var(--muted); position: relative; }
   .side.act { color: var(--accent); }
   .side.act::after { content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); translate: -50% 0; }
   .one { position: absolute; top: 6px; right: 6px; font-size: 9px; font-weight: 700; }
   .play {
-    width: 64px !important; height: 64px !important; border: 0; border-radius: 18px; background: var(--accent); color: var(--ink);
+    width: 56px !important; height: 56px !important; border: 0; border-radius: 16px; background: var(--accent); color: var(--ink);
     box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 45%, transparent);
     transition: border-radius 0.35s cubic-bezier(0.3, 0.7, 0.2, 1), transform 0.15s, filter 0.15s;
   }
   .play:hover { background: var(--accent); filter: brightness(1.08); }
   .play.round { border-radius: 50%; }
   .ctrl button:active { transform: scale(0.9); }
-  .actions .icon :global(svg) { width: 22px; height: 22px; }
   .liked { color: var(--blossom); }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; }
+  .side-r { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
+  .vol { display: flex; align-items: center; gap: 8px; color: var(--muted); width: 140px; }
+  .vol :global(svg) { width: 18px; height: 18px; flex: none; }
+  .vol input { flex: 1; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; background: rgba(0, 0, 0, 0.25); }
   .chip :global(svg) { width: 14px; height: 14px; }
   .chip.on { color: var(--ink); background: var(--accent); border-color: transparent; }
-
-  .right { position: relative; min-height: 0; display: flex; align-items: center; justify-content: center; }
-  .cover {
-    max-width: 100%; max-height: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 22px;
-    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5), 0 0 90px color-mix(in srgb, var(--accent) 22%, transparent);
-    animation: in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  @keyframes in { from { opacity: 0; transform: scale(0.96); } }
   .more {
-    position: absolute; left: 50%; bottom: 0; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px;
-    background: transparent; border: 0; color: var(--faint); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    position: absolute; left: 50%; bottom: 6px; translate: -50% 0; display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: 0; color: var(--faint); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
   }
   .more:hover { color: var(--text); background: transparent; }
   .more :global(svg) { width: 14px; height: 14px; animation: bob 2s ease-in-out infinite; }
   @keyframes bob { 50% { transform: translateY(3px); } }
+  @media (prefers-reduced-motion: reduce) { .bg, .more :global(svg) { animation: none; } }
 
   /* ---------- seções ---------- */
-  .sec { padding: 26px 0 8px; }
+  .sec { padding: 26px 48px 8px; }
   h2 { font-size: 20px; font-weight: 400; margin: 0 0 14px; }
   .rowscroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; }
   .tile { display: flex; flex-direction: column; gap: 4px; width: 140px; flex: none; min-width: 0; text-align: left; }
@@ -264,5 +306,5 @@
   .pl:hover img { filter: brightness(0.85); }
   .wrap { flex-wrap: wrap; }
   .dev { padding: 8px 14px; font-size: 13px; }
-  .err { color: var(--danger); font-size: 12px; padding-top: 10px; }
+  .err { color: var(--danger); font-size: 12px; padding: 10px 48px 0; }
 </style>
