@@ -1,3 +1,4 @@
+import { spInit, spRefresh } from './spotify.svelte';
 import { kvGet, kvSet, onMedia, onSys, mediaArt, wallpaperGet, type MediaState, type SysSample } from './api';
 
 export type WidgetType = 'clock' | 'media' | 'todo' | 'habits' | 'agenda' | 'hardware' | 'mixer';
@@ -91,9 +92,16 @@ export async function boot() {
   try { if (p) Object.assign(prefs, JSON.parse(p)); } catch { /* idem */ }
   loadWallpaper();
 
-  let artKey = '';
+  spInit();
+  let artKey = '', track = '', spTimer = 0;
   onMedia(async s => {
     live.media = s;
+    // troca de faixa → reavalia playlist do Spotify (com folga para a API refletir a troca)
+    if (`${s.title}|${s.artist}` !== track) {
+      track = `${s.title}|${s.artist}`;
+      clearTimeout(spTimer);
+      spTimer = setTimeout(spRefresh, 1200);
+    }
     if (s.art_key !== artKey) {
       artKey = s.art_key;
       live.art = s.art_key ? await mediaArt() : '';

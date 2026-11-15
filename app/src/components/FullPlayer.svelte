@@ -7,6 +7,7 @@
   import Icon from './Icon.svelte';
   import WaveBar from './WaveBar.svelte';
   import Lyrics from './Lyrics.svelte';
+  import PlaylistChip from './PlaylistChip.svelte';
 
   const m = $derived(live.media!);
   const accent = $derived(live.artColor || 'var(--teal)');
@@ -95,6 +96,7 @@
         <h1>{m.title}</h1>
         <p class="artist">{m.artist}</p>
         {#if m.album}<p class="album">{m.album}</p>{/if}
+        <div class="plc"><PlaylistChip big /></div>
       </div>
       {#if showLyrics}
         <div class="lyrics">
@@ -239,6 +241,7 @@
   .artist { font-size: 20px; margin: 0; color: var(--accent); }
   .album { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
   .lyrics { min-height: 0; }
+  .plc { margin-top: 14px; display: flex; }
 
   .bar {
     display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 2.2fr) minmax(200px, 1fr); align-items: center; gap: 28px;

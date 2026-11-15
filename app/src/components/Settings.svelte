@@ -3,6 +3,7 @@
   import * as api from '../lib/api';
   import Icon from './Icon.svelte';
   import { upd, check, install } from '../lib/update.svelte';
+  import { spInit } from '../lib/spotify.svelte';
 
   const COLORS = ['#7fe0d0', '#cfe08e', '#f3a9c4', '#e8c27c', '#8cc8f0', '#c3a6f0', '#7dbb6a'];
 
@@ -64,10 +65,12 @@
       spMsg = 'Conectado.';
     } catch (e) { spMsg = String(e); }
     sp = await api.spotifyStatus();
+    spInit();
   }
   async function spDisconnect() {
     await api.spotifyDisconnect();
     sp = await api.spotifyStatus();
+    spInit();
     spMsg = '';
   }
 </script>
