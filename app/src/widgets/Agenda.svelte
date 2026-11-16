@@ -53,7 +53,7 @@
   // pequeno: abre direto (reunião primeiro, senão a agenda); expandido: detalhes (local edita)
   const pick = (e: CalEvent) => (expanded ? open(e) : go(meeting(e) || e.url));
 
-  const timeLabel = (e: CalEvent) => (e.all_day ? 'dia todo' : fmtTime.format(e.start));
+  const timeLabel = (e: CalEvent) => (e.all_day ? 'dia' : fmtTime.format(e.start));
 
   // ---------- formulário (eventos locais) ----------
   type Form = { id?: number; title: string; date: string; start: string; end: string; all_day: boolean; location: string; notes: string };
@@ -103,28 +103,21 @@
   <div class="list scroll">
     {#each groups as g}
       <div class="day">
-        <div class="label">{dayHeading(g.day)}</div>
+        <div class="dh">{dayHeading(g.day)}</div>
         {#each g.items as e (e.id + g.day.getTime())}
           {@const st = status(e)}
           {@const meet = meeting(e)}
           {@const clickable = expanded || !!e.url || !!meet}
-          <div class="ev" class:now={st === 'agora'}>
-            <button class="evb" class:link={clickable} disabled={!clickable} onclick={() => pick(e)}
-              title={expanded ? undefined : meet ? 'Entrar na reunião' : e.url ? 'Abrir no Google Agenda' : undefined}>
-              <i class="bar" style="background:{e.color || 'var(--leaf)'}"></i>
-              <span class="mono time">{timeLabel(e)}</span>
-              <span class="grow ellipsis">{e.title}</span>
-              {#if st}<span class="st">{st}</span>{/if}
-              {#if !expanded && e.url && !meet}<span class="ext"><Icon name="expand" /></span>{/if}
-            </button>
-            {#if meet && st}
-              <button class="join" onclick={() => go(meet)}>Entrar</button>
-            {:else if meet}
-              <button class="ghost icon cam" aria-label="Entrar na reunião: {e.title}" title="Entrar na reunião" onclick={() => go(meet)}><Icon name="video" /></button>
-            {/if}
-          </div>
+          <!-- clicar abre a reunião (Meet/Zoom/Teams) ou o evento no Google Agenda; no expandido, os detalhes -->
+          <button class="ev" class:now={st === 'agora'} class:link={clickable} disabled={!clickable} onclick={() => pick(e)}
+            title={expanded ? undefined : meet ? `Entrar na reunião: ${e.title}` : e.url ? `Abrir no Google Agenda: ${e.title}` : e.title}>
+            <i class="bar" style="background:{e.color || 'var(--leaf)'}"></i>
+            <span class="tm mono">{timeLabel(e)}</span>
+            <span class="tt ellipsis">{e.title}</span>
+            {#if st}<span class="st">{st}</span>{/if}
+          </button>
         {:else}
-          <div class="faint free">Livre pelo resto do dia</div>
+          <div class="free">Livre pelo resto do dia</div>
         {/each}
       </div>
     {/each}
@@ -188,30 +181,31 @@
 {/if}
 
 <style>
-  .list { height: 100%; display: flex; flex-direction: column; gap: 12px; }
-  .day { display: flex; flex-direction: column; gap: 3px; }
-  .day .label { margin-bottom: 3px; }
-  .ev { display: flex; align-items: center; gap: 6px; border-radius: 8px; min-width: 0; }
-  .evb {
-    flex: 1; display: flex; align-items: center; gap: 10px; text-align: left; padding: 5px 8px 5px 0;
-    background: transparent; border: 0; border-radius: 8px; min-width: 0; cursor: default;
+  .list { height: 100%; display: flex; flex-direction: column; gap: 10px; container-type: inline-size; }
+  .day { display: flex; flex-direction: column; gap: 1px; }
+  .dh { font: 600 10px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); margin: 0 0 4px; }
+  .ev {
+    display: grid; grid-template-columns: 3px 38px minmax(0, 1fr) auto; align-items: center; column-gap: 9px;
+    padding: 4px 6px 4px 0; text-align: left; background: transparent; border: 0; border-radius: 7px;
+    min-width: 0; cursor: default; font-size: 13px; line-height: 1.3;
   }
-  .evb:disabled { opacity: 1; }
-  .evb.link { cursor: pointer; }
-  .evb.link:hover { background: rgba(190, 240, 225, 0.06); }
-  .ext { display: grid; color: var(--faint); opacity: 0; transition: opacity 0.15s; }
-  .ext :global(svg) { width: 12px; height: 12px; }
-  .evb:hover .ext { opacity: 1; }
-  .join { padding: 2px 10px; font-size: 11px; border-radius: 999px; color: var(--ink); background: var(--teal); border: 0; flex: none; }
-  .join:hover { background: var(--teal); filter: brightness(1.1); }
-  .wrap { flex-wrap: wrap; }
-  .cam { width: 26px; height: 26px; color: var(--teal); flex: none; }
-  .cam :global(svg) { width: 15px; height: 15px; }
+  .ev:disabled { opacity: 1; }
+  .ev.link { cursor: pointer; }
+  .ev.link:hover { background: rgba(190, 240, 225, 0.06); }
   .ev.now { background: rgba(127, 224, 208, 0.1); }
-  .bar { width: 3px; align-self: stretch; border-radius: 2px; flex: none; }
-  .time { font-size: 12px; color: var(--muted); width: 62px; flex: none; white-space: nowrap; }
-  .st { font-size: 11px; color: var(--teal); white-space: nowrap; }
-  .free { font-size: 12px; padding-left: 13px; }
+  .bar { width: 3px; align-self: stretch; border-radius: 2px; grid-row: 1 / -1; }
+  .tm { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .st { font-size: 10.5px; color: var(--teal); white-space: nowrap; }
+  .free { font-size: 11.5px; color: var(--faint); padding-left: 12px; }
+  .full .ev { font-size: 14px; padding: 5px 8px 5px 0; }
+  /* estreito (widget com 2 colunas): hora + status em cima, título embaixo */
+  @container (max-width: 250px) {
+    .ev { grid-template-columns: 3px auto 1fr; grid-template-areas: 'bar tm st' 'bar tt tt'; row-gap: 1px; }
+    .bar { grid-area: bar; }
+    .tm { grid-area: tm; }
+    .st { grid-area: st; justify-self: end; }
+    .tt { grid-area: tt; font-size: 12.5px; }
+  }
   .full { height: 100%; display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; min-height: 0; }
   aside { min-height: 0; overflow-y: auto; }
   .pane { padding: 16px; }

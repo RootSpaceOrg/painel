@@ -15,7 +15,7 @@ export const WIDGETS: Record<WidgetType, WidgetDef> = {
   media: { label: 'Tocando agora', comp: Media, size: [5, 3], min: [3, 2], bare: true, immersive: true },
   todo: { label: 'Tarefas', comp: Todo, size: [4, 5], min: [2, 3] },
   habits: { label: 'Metas do dia', comp: Habits, size: [4, 4], min: [2, 2] },
-  agenda: { label: 'Agenda', comp: Agenda, size: [4, 5], min: [2, 3] },
+  agenda: { label: 'Agenda', comp: Agenda, size: [4, 5], min: [2, 2] },
   hardware: { label: 'Sistema', comp: Hardware, size: [6, 3], min: [3, 2] },
   mixer: { label: 'Volume', comp: Mixer, size: [3, 3], min: [2, 2] },
 };
