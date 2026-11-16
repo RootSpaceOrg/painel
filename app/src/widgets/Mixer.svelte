@@ -1,6 +1,7 @@
 <script lang="ts">
   import { audioState, audioSetMaster, audioSetMasterMute, audioSetSession, audioSetSessionMute, audioSetDefault, type AudioState } from '../lib/api';
   import Icon from '../components/Icon.svelte';
+  import { iconFor } from '../lib/icons';
 
   let { expanded = false }: { expanded?: boolean } = $props();
   let st = $state<AudioState | null>(null);
@@ -20,6 +21,17 @@
   const run = (p: Promise<unknown>) => p.catch(e => (err = String(e)));
   const pct = (v: number) => Math.round(v * 100);
   const def = $derived(st?.devices.find(d => d.default));
+
+  // ícone de cada app (extraído do .exe uma vez e guardado em cache)
+  let icons = $state<Record<string, string>>({});
+  const asked = new Set<string>(); // fora do estado reativo: o efeito não depende do que ele mesmo escreve
+  $effect(() => {
+    for (const s of st?.sessions ?? [])
+      if (s.exe && !asked.has(s.exe)) {
+        asked.add(s.exe);
+        iconFor(s.exe).then(u => (icons[s.exe] = u));
+      }
+  });
 </script>
 
 {#snippet slider(value: number, muted: boolean, label: string, set: (v: number) => void, mute: () => void)}
@@ -60,6 +72,8 @@
         <span class="label">Aplicativos</span>
         {#each expanded ? st.sessions : st.sessions.slice(0, 3) as s (s.pid)}
           <div class="app">
+            {#if icons[s.exe]}<img class="appic" src={icons[s.exe]} alt="" />
+            {:else}<span class="appic ph"><Icon name={s.pid === 0 ? 'volume' : 'music'} /></span>{/if}
             <span class="ellipsis name" title={s.name}>{s.name}</span>
             {@render slider(s.volume, s.muted, s.name, v => { s.volume = v; run(audioSetSession(s.pid, v)); }, () => run(audioSetSessionMute(s.pid, !s.muted).then(load)))}
           </div>
@@ -78,7 +92,14 @@
   .vol.muted input { opacity: 0.4; }
   .pc { width: 26px; text-align: right; font-size: 12px; color: var(--muted); }
   .apps { flex: 1; gap: 4px; }
+  /* ícone à esquerda ocupando as duas linhas (nome + volume) */
+  .app { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 10px; align-items: center; }
+  .appic { grid-row: 1 / 3; width: 22px; height: 22px; border-radius: 5px; object-fit: contain; }
+  .ph { display: grid; place-items: center; background: rgba(190, 240, 225, 0.08); color: var(--muted); }
+  .ph :global(svg) { width: 13px; height: 13px; }
   .app .name { font-size: 12px; color: var(--muted); }
+  .x .app { grid-template-columns: 32px minmax(0, 1fr); column-gap: 14px; }
+  .x .appic { width: 32px; height: 32px; border-radius: 7px; }
   .x .app .name { font-size: 14px; color: var(--text); }
   .x .app { padding: 6px 0; border-bottom: 1px solid var(--line); }
   .devs { display: flex; flex-direction: column; gap: 6px; }

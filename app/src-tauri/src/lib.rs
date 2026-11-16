@@ -59,6 +59,7 @@ pub fn run() {
             autostart::autostart_get, autostart::autostart_set,
             lyrics::lyrics,
             bluetooth::bt_list, bluetooth::bt_set,
+            audio::app_icon,
             updater::update_check, updater::update_install,
         ])
         .run(tauri::generate_context!())
