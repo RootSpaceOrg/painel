@@ -45,6 +45,11 @@ export const audioSetSession = (pid: number, volume: number) => invoke<void>('au
 export const audioSetSessionMute = (pid: number, muted: boolean) => invoke<void>('audio_set_session_mute', { pid, muted });
 export const audioSetDefault = (id: string) => invoke<void>('audio_set_default', { id });
 
+// ---------- Bluetooth (fones/caixas pareados) ----------
+export interface BtDevice { name: string; connected: boolean }
+export const btList = () => invoke<BtDevice[]>('bt_list');
+export const btSet = (name: string, connect: boolean) => invoke<void>('bt_set', { name, connect });
+
 // ---------- To-do ----------
 // days: bitmask seg=1, ter=2, qua=4, qui=8, sex=16, sáb=32, dom=64. 0 = tarefa avulsa.
 // done_on: 'YYYY-MM-DD' do dia em que foi concluída (recorrente: concluída hoje se done_on == hoje).
