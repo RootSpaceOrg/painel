@@ -7,6 +7,7 @@ import Habits from './Habits.svelte';
 import Agenda from './Agenda.svelte';
 import Hardware from './Hardware.svelte';
 import Mixer from './Mixer.svelte';
+import Bluetooth from './Bluetooth.svelte';
 
 // Novo widget = um componente com prop `expanded` + uma linha aqui.
 export interface WidgetDef { label: string; comp: Component<{ expanded?: boolean }>; size: [number, number]; min: [number, number]; bare?: boolean; immersive?: boolean }
@@ -18,4 +19,5 @@ export const WIDGETS: Record<WidgetType, WidgetDef> = {
   agenda: { label: 'Agenda', comp: Agenda, size: [4, 5], min: [2, 2] },
   hardware: { label: 'Sistema', comp: Hardware, size: [6, 3], min: [3, 2] },
   mixer: { label: 'Volume', comp: Mixer, size: [3, 3], min: [2, 2] },
+  bluetooth: { label: 'Bluetooth', comp: Bluetooth, size: [3, 2], min: [2, 2] },
 };

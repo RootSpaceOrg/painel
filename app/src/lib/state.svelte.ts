@@ -1,7 +1,7 @@
 import { spInit, spRefresh } from './spotify.svelte';
 import { kvGet, kvSet, onMedia, onSys, mediaArt, wallpaperGet, type MediaState, type SysSample } from './api';
 
-export type WidgetType = 'clock' | 'media' | 'todo' | 'habits' | 'agenda' | 'hardware' | 'mixer';
+export type WidgetType = 'clock' | 'media' | 'todo' | 'habits' | 'agenda' | 'hardware' | 'mixer' | 'bluetooth';
 export interface Placed { id: string; type: WidgetType; x: number; y: number; w: number; h: number }
 export interface Tab { id: string; name: string; widgets: Placed[] }
 

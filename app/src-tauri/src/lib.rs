@@ -1,6 +1,7 @@
 mod agenda;
 mod audio;
 mod autostart;
+mod bluetooth;
 mod db;
 mod lyrics;
 mod media;
@@ -57,6 +58,7 @@ pub fn run() {
             spotify::spotify_disconnect, spotify::spotify_api,
             autostart::autostart_get, autostart::autostart_set,
             lyrics::lyrics,
+            bluetooth::bt_list, bluetooth::bt_set,
             updater::update_check, updater::update_install,
         ])
         .run(tauri::generate_context!())
