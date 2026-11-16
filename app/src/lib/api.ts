@@ -36,13 +36,15 @@ export const onSys = (cb: (s: SysSample) => void) => listen<SysSample>('sys', e 
 
 // ---------- Áudio ----------
 export interface AudioDevice { id: string; name: string; default: boolean }
-export interface AudioSession { pid: number; name: string; volume: number; muted: boolean }
+export interface AudioSession { pid: number; name: string; exe: string; volume: number; muted: boolean } // exe '' = sem ícone
 export interface AudioState { devices: AudioDevice[]; master: number; muted: boolean; sessions: AudioSession[] }
 export const audioState = () => invoke<AudioState>('audio_state');
 export const audioSetMaster = (volume: number) => invoke<void>('audio_set_master', { volume });
 export const audioSetMasterMute = (muted: boolean) => invoke<void>('audio_set_master_mute', { muted });
 export const audioSetSession = (pid: number, volume: number) => invoke<void>('audio_set_session', { pid, volume });
 export const audioSetSessionMute = (pid: number, muted: boolean) => invoke<void>('audio_set_session_mute', { pid, muted });
+export interface AppIcon { w: number; h: number; rgba: string } // pixels RGBA em base64
+export const appIcon = (path: string) => invoke<AppIcon | null>('app_icon', { path });
 export const audioSetDefault = (id: string) => invoke<void>('audio_set_default', { id });
 
 // ---------- Bluetooth (fones/caixas pareados) ----------
