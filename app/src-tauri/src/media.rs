@@ -222,3 +222,4 @@ mod tests {
         assert_eq!(super::friendly("C:/x/foobar.exe"), "Foobar");
     }
 }
+

@@ -2,8 +2,9 @@
   // Player em tela cheia. Topo: fundo com foto do artista (ou capa) em blur escuro, título, letra opcional à direita
   // e uma barra de ponta a ponta embaixo. Rolando: fila, dispositivos, playlists.
   import { live, prefs, savePrefs } from '../lib/state.svelte';
-  import { mediaControl, mediaSelect, spotifyStatus, spotifyApi, audioState, audioSetMaster } from '../lib/api';
-  import { fmtDuration, fmtTime, fmtWeekday } from '../lib/util';
+  import { mediaControl, mediaSelect, spotifyStatus, spotifyApi, audioState, audioSetMaster, audioSetSession } from '../lib/api';
+  import { iconFor } from '../lib/icons';
+  import { fmtDuration, fmtTime, fmtWeekday, sameApp } from '../lib/util';
   import Icon from './Icon.svelte';
   import WaveBar from './WaveBar.svelte';
   import Lyrics from './Lyrics.svelte';
@@ -79,9 +80,45 @@
   const bg = $derived(sp.bg || live.art);
 
   // volume geral do sistema (mesmo do widget Volume)
+  // Volume do app que está tocando (ex.: só o Spotify), pela sessão de áudio dele no mixer do Windows.
+  // Sem sessão de áudio desse app (ou app não reconhecido), controla o volume geral.
   let vol = $state<number | null>(null);
-  $effect(() => { audioState().then(a => (vol = a.master)).catch(() => {}); });
-  const setVol = (v: number) => { vol = v; audioSetMaster(v).catch(() => {}); };
+  let target = $state<{ pids: number[]; name: string; exe: string } | null>(null);
+  let dragging = false; // não sobrescreve o slider enquanto arrasta
+  const activeId = $derived(live.media?.active ?? '');
+  async function loadVol() {
+    if (dragging) return;
+    try {
+      const a = await audioState();
+      const hits = activeId ? a.sessions.filter(x => x.pid !== 0 && sameApp(activeId, x.name)) : [];
+      if (hits.length) {
+        target = { pids: hits.map(x => x.pid), name: hits[0].name, exe: hits[0].exe };
+        vol = hits[0].volume;
+      } else {
+        target = null;
+        vol = a.master;
+      }
+    } catch { /* sem áudio: mantém o último valor */ }
+  }
+  $effect(() => {
+    activeId; // troca de fonte → reavalia na hora
+    loadVol();
+    const t = setInterval(loadVol, 3000);
+    return () => clearInterval(t);
+  });
+  const setVol = (v: number) => {
+    vol = v;
+    if (target) for (const pid of target.pids) audioSetSession(pid, v).catch(() => {});
+    else audioSetMaster(v).catch(() => {});
+  };
+  // ícone do app no lugar do alto-falante (só muda quando o app muda)
+  const targetExe = $derived(target?.exe ?? '');
+  let volIcon = $state('');
+  $effect(() => {
+    const exe = targetExe;
+    volIcon = '';
+    if (exe) iconFor(exe).then(u => { if (exe === targetExe) volIcon = u; });
+  });
 
   const nice = (e: string) => (e.includes('403') ? 'A Spotify recusou um comando (alguns exigem Premium).' : e);
 </script>
@@ -175,9 +212,11 @@
           <Icon name="lyrics" /> Letra
         </button>
         {#if vol !== null}
-          <div class="vol">
-            <Icon name="volume" />
-            <input type="range" min="0" max="100" value={Math.round(vol * 100)} style="--p:{vol * 100}" aria-label="Volume geral"
+          <div class="vol" title={target ? `Volume do ${target.name} (só este app)` : 'Volume geral'}>
+            {#if volIcon}<img class="vapp" src={volIcon} alt="" />{:else}<Icon name="volume" />{/if}
+            <input type="range" min="0" max="100" value={Math.round(vol * 100)} style="--p:{vol * 100}"
+              aria-label={target ? `Volume do ${target.name}` : 'Volume geral'}
+              onpointerdown={() => (dragging = true)} onpointerup={() => (dragging = false)}
               oninput={e => setVol(+e.currentTarget.value / 100)} />
           </div>
         {/if}
@@ -305,6 +344,7 @@
   .vol { display: flex; align-items: center; gap: 8px; color: var(--muted); width: 140px; }
   .vol :global(svg) { width: 18px; height: 18px; flex: none; }
   .vol input { flex: 1; }
+  .vapp { width: 20px; height: 20px; flex: none; border-radius: 4px; }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; background: rgba(0, 0, 0, 0.25); }
   .chip :global(svg) { width: 14px; height: 14px; }
   .chip.on { color: var(--ink); background: var(--accent); border-color: transparent; }

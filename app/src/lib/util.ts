@@ -84,3 +84,11 @@ export function lrcIndex(lines: { t: number }[], pos: number) {
   while (lo <= hi) { const mid = (lo + hi) >> 1; if (lines[mid].t <= pos) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
   return ans;
 }
+
+/** A sessão de áudio (nome do .exe, ex. "Spotify") é do app que está tocando a mídia (ID do Windows, ex. "Spotify.exe")? */
+export function sameApp(mediaId: string, exeStem: string) {
+  const norm = (s: string) => s.toLowerCase().replace(/\.exe$/, '').replace(/[^a-z0-9]/g, '');
+  const id = norm(mediaId), stem = norm(exeStem);
+  if (stem.length < 3 || !id) return false;
+  return id === stem || id.includes(stem) || (id.length >= 4 && stem.includes(id));
+}
