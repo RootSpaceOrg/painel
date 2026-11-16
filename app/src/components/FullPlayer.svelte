@@ -13,7 +13,7 @@
   const m = $derived(live.media!);
   const accent = $derived(live.artColor || 'var(--teal)');
   const source = $derived(m.sessions.find(s => s.id === m.active)?.app ?? '');
-  let showLyrics = $state(false);
+  const showLyrics = $derived(prefs.lyrics); // lembrado entre aberturas (prefs)
   let bgCtl = $state(false); // popover do desfoque do fundo
 
   // horário no canto superior direito (atualiza a cada 10s; só os minutos aparecem)
@@ -80,10 +80,14 @@
   const bg = $derived(sp.bg || live.art);
 
   // volume geral do sistema (mesmo do widget Volume)
-  // Volume do app que está tocando (ex.: só o Spotify), pela sessão de áudio dele no mixer do Windows.
-  // Sem sessão de áudio desse app (ou app não reconhecido), controla o volume geral.
+  // Volume, nesta ordem de preferência:
+  //  1. Spotify conectado e tocando → a barra de volume do próprio Spotify (Web API; exige Premium)
+  //  2. sessão de áudio do app que está tocando no mixer do Windows (ex.: YouTube no navegador)
+  //  3. volume geral
   let vol = $state<number | null>(null);
   let target = $state<{ pids: number[]; name: string; exe: string } | null>(null);
+  let spVol = $state(false); // controlando o volume interno do Spotify
+  let spVolOff = false; // Spotify recusou (ex.: sem Premium): não tenta de novo nesta sessão do player
   let dragging = false; // não sobrescreve o slider enquanto arrasta
   const activeId = $derived(live.media?.active ?? '');
   async function loadVol() {
@@ -91,24 +95,45 @@
     try {
       const a = await audioState();
       const hits = activeId ? a.sessions.filter(x => x.pid !== 0 && sameApp(activeId, x.name)) : [];
-      if (hits.length) {
-        target = { pids: hits.map(x => x.pid), name: hits[0].name, exe: hits[0].exe };
-        vol = hits[0].volume;
-      } else {
-        target = null;
-        vol = a.master;
+      target = hits.length ? { pids: hits.map(x => x.pid), name: hits[0].name, exe: hits[0].exe } : null;
+      if (sp.on && !spVolOff && sameApp(activeId, 'Spotify')) {
+        const dev = (await spotifyApi('GET', '/me/player').catch(() => null))?.device;
+        if (dev?.supports_volume && typeof dev.volume_percent === 'number') {
+          if (!dragging) vol = dev.volume_percent / 100;
+          spVol = true;
+          return;
+        }
       }
+      spVol = false;
+      vol = hits.length ? hits[0].volume : a.master;
     } catch { /* sem áudio: mantém o último valor */ }
   }
   $effect(() => {
     activeId; // troca de fonte → reavalia na hora
+    sp.on;
     loadVol();
-    const t = setInterval(loadVol, 3000);
+    const t = setInterval(loadVol, 4000);
     return () => clearInterval(t);
   });
+  // Web API tem limite de chamadas: no máximo 1 a cada 250ms enquanto arrasta, sempre mandando o último valor
+  let spTimer = 0, spPending: number | null = null;
+  function sendSpotifyVol() {
+    if (spPending === null) { spTimer = 0; return; }
+    const pct = spPending;
+    spPending = null;
+    spotifyApi('PUT', `/me/player/volume?volume_percent=${pct}`).catch(() => {
+      spVolOff = true; // recusou: passa a usar o mixer do Windows
+      spVol = false;
+      if (vol !== null) setVol(vol);
+    });
+    spTimer = window.setTimeout(sendSpotifyVol, 250);
+  }
   const setVol = (v: number) => {
     vol = v;
-    if (target) for (const pid of target.pids) audioSetSession(pid, v).catch(() => {});
+    if (spVol) {
+      spPending = Math.round(v * 100);
+      if (!spTimer) sendSpotifyVol();
+    } else if (target) for (const pid of target.pids) audioSetSession(pid, v).catch(() => {});
     else audioSetMaster(v).catch(() => {});
   };
   // ícone do app no lugar do alto-falante (só muda quando o app muda)
@@ -208,14 +233,14 @@
             </div>
           {/if}
         </div>
-        <button class="chip" class:on={showLyrics} aria-pressed={showLyrics} onclick={() => (showLyrics = !showLyrics)}>
+        <button class="chip" class:on={showLyrics} aria-pressed={showLyrics} onclick={() => { prefs.lyrics = !prefs.lyrics; savePrefs(); }}>
           <Icon name="lyrics" /> Letra
         </button>
         {#if vol !== null}
-          <div class="vol" title={target ? `Volume do ${target.name} (só este app)` : 'Volume geral'}>
+          <div class="vol" title={spVol ? 'Volume do Spotify (a barra de volume do app)' : target ? `Volume do ${target.name} (só este app)` : 'Volume geral'}>
             {#if volIcon}<img class="vapp" src={volIcon} alt="" />{:else}<Icon name="volume" />{/if}
             <input type="range" min="0" max="100" value={Math.round(vol * 100)} style="--p:{vol * 100}"
-              aria-label={target ? `Volume do ${target.name}` : 'Volume geral'}
+              aria-label={spVol ? 'Volume do Spotify' : target ? `Volume do ${target.name}` : 'Volume geral'}
               onpointerdown={() => (dragging = true)} onpointerup={() => (dragging = false)}
               oninput={e => setVol(+e.currentTarget.value / 100)} />
           </div>
