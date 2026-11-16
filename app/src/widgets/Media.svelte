@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { live } from '../lib/state.svelte';
+  import { live, prefs, savePrefs } from '../lib/state.svelte';
+  import Lyrics from '../components/Lyrics.svelte';
   import { mediaControl } from '../lib/api';
   import { fmtDuration } from '../lib/util';
   import Icon from '../components/Icon.svelte';
@@ -35,16 +36,27 @@
     {#if live.art}<div class="glow sm" style="background-image:url({live.art})"></div>{/if}
     <div class="art">{#if live.art}<img src={live.art} alt="" />{:else}<Icon name="music" />{/if}</div>
     <div class="info">
-      <div class="title ellipsis">{m.title}</div>
-      <div class="artist ellipsis muted">{m.artist}</div>
-      <div class="plc"><PlaylistChip /></div>
+      {#if prefs.miniLyrics}
+        <!-- letra: título e artista numa linha, linha atual da letra em destaque -->
+        <div class="tline ellipsis"><b>{m.title}</b> <span class="muted">· {m.artist}</span></div>
+        <div class="lyr"><Lyrics mini artist={m.artist} title={m.title} album={m.album} duration={m.duration} position={m.position} playing={m.playing} /></div>
+      {:else}
+        <div class="title ellipsis">{m.title}</div>
+        <div class="artist ellipsis muted">{m.artist}</div>
+        <div class="plc"><PlaylistChip /></div>
+      {/if}
       <div class="wave-row">
         <WaveBar position={m.position} duration={m.duration} playing={m.playing} color={accent} onseek={m.duration ? seek : undefined} />
       </div>
       <div class="row between">
         <span class="mono faint t">{fmtDuration(m.position)}</span>
         {@render controls('sm')}
-        <span class="mono faint t">{m.duration ? fmtDuration(m.duration) : ''}</span>
+        <span class="end">
+          <button class="ghost icon lyrbtn" class:on={prefs.miniLyrics} aria-pressed={prefs.miniLyrics} title="Letra"
+            aria-label={prefs.miniLyrics ? 'Esconder letra' : 'Mostrar letra'}
+            onclick={() => { prefs.miniLyrics = !prefs.miniLyrics; savePrefs(); }}><Icon name="lyrics" /></button>
+          <span class="mono faint t">{m.duration ? fmtDuration(m.duration) : ''}</span>
+        </span>
       </div>
     </div>
   </div>
@@ -59,6 +71,12 @@
   .glow.sm { inset: -60px; filter: blur(46px) saturate(1.5); opacity: 0.32; transition: background-image 0.6s; }
   .wave-row { margin: 8px 0 2px; }
   .plc { display: flex; min-width: 0; min-height: 0; }
+  .tline { font-size: 13px; }
+  .lyr { min-height: 44px; display: flex; align-items: center; margin-top: 2px; }
+  .end { display: flex; align-items: center; gap: 2px; }
+  .lyrbtn { width: 26px; height: 26px; color: var(--faint); }
+  .lyrbtn :global(svg) { width: 14px; height: 14px; }
+  .lyrbtn.on { color: var(--accent); }
   .art {
     height: 100%; max-height: 150px; aspect-ratio: 1; border-radius: 12px; overflow: hidden; flex: none;
     background: rgba(190, 240, 225, 0.06); display: grid; place-items: center; color: var(--faint);
