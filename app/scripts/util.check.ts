@@ -1,5 +1,5 @@
 // node scripts/util.check.ts
-import { streak, daysLabel, ALL_DAYS, WEEKDAYS, parseLrc, lrcIndex } from '../src/lib/util.ts';
+import { streak, daysLabel, ALL_DAYS, WEEKDAYS, parseLrc, lrcIndex, sameApp } from '../src/lib/util.ts';
 import assert from 'node:assert';
 
 const sun = new Date(2026, 10, 15); // domingo
@@ -17,4 +17,11 @@ assert.equal(lrcIndex(l, 0), -1);
 assert.equal(lrcIndex(l, 12.5), 1);
 assert.equal(lrcIndex(l, 70), 2);
 assert.equal(lrcIndex(l, 999), 3);
+assert.ok(sameApp('Spotify.exe', 'Spotify'), 'spotify desktop');
+assert.ok(sameApp('SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify', 'Spotify'), 'spotify da Microsoft Store');
+assert.ok(sameApp('Chrome', 'chrome'), 'chrome');
+assert.ok(sameApp('MSEdge', 'msedge'), 'edge');
+assert.ok(sameApp('Brave', 'brave'), 'brave');
+assert.ok(!sameApp('Spotify.exe', 'brave'), 'apps diferentes');
+assert.ok(!sameApp('Spotify.exe', 'sp'), 'nome curto demais não casa');
 console.log('util ok');
