@@ -1,6 +1,7 @@
 <script lang="ts">
   import { live, prefs, savePrefs } from '../lib/state.svelte';
   import Lyrics from '../components/Lyrics.svelte';
+  import VolumeControl from '../components/VolumeControl.svelte';
   import { mediaControl } from '../lib/api';
   import { fmtDuration } from '../lib/util';
   import Icon from '../components/Icon.svelte';
@@ -48,14 +49,16 @@
       <div class="wave-row">
         <WaveBar position={m.position} duration={m.duration} playing={m.playing} color={accent} onseek={m.duration ? seek : undefined} />
       </div>
-      <div class="row between">
-        <span class="mono faint t">{fmtDuration(m.position)}</span>
+      <!-- tempo | controles | letra + volume (slider fixo se couber; senão botão com balão) -->
+      <div class="bottom">
+        <span class="mono faint t">{fmtDuration(m.position)}{#if m.duration}<span class="tdur">{' / '}{fmtDuration(m.duration)}</span>{/if}</span>
         {@render controls('sm')}
         <span class="end">
           <button class="ghost icon lyrbtn" class:on={prefs.miniLyrics} aria-pressed={prefs.miniLyrics} title="Letra"
             aria-label={prefs.miniLyrics ? 'Esconder letra' : 'Mostrar letra'}
             onclick={() => { prefs.miniLyrics = !prefs.miniLyrics; savePrefs(); }}><Icon name="lyrics" /></button>
-          <span class="mono faint t">{m.duration ? fmtDuration(m.duration) : ''}</span>
+          <span class="vin"><VolumeControl /></span>
+          <span class="vpop"><VolumeControl compact /></span>
         </span>
       </div>
     </div>
@@ -67,13 +70,34 @@
 <style>
   .none { height: 100%; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--faint); }
   .none :global(svg) { width: 28px; height: 28px; }
-  .compact { position: relative; isolation: isolate; display: flex; gap: 16px; height: 100%; align-items: center; min-width: 0; }
+  .compact { container: cmp / inline-size; position: relative; isolation: isolate; display: flex; gap: 16px; height: 100%; align-items: center; min-width: 0; }
   .glow.sm { inset: -60px; filter: blur(46px) saturate(1.5); opacity: 0.32; transition: background-image 0.6s; }
   .wave-row { margin: 8px 0 2px; }
   .plc { display: flex; min-width: 0; min-height: 0; }
   .tline { font-size: 13px; }
   .lyr { min-height: 44px; display: flex; align-items: center; margin-top: 2px; }
-  .end { display: flex; align-items: center; gap: 2px; }
+  .bottom .t { white-space: nowrap; }
+  .bottom { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
+  .end { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
+  .vin { flex: 1; min-width: 0; max-width: 120px; display: flex; }
+  .vin :global(svg) { width: 15px !important; height: 15px !important; }
+  .vpop { display: none; }
+  /* card estreito: sem espaço para o slider fixo → botão que abre o volume num balão */
+  @container info (max-width: 330px) {
+    .vin { display: none; }
+    .vpop { display: inline-flex; }
+    .tdur { display: none; }
+  }
+  /* bem estreito: some o tempo, ficam controles + letra + volume */
+  @container info (max-width: 230px) {
+    .bottom { grid-template-columns: auto minmax(0, 1fr); }
+    .bottom .t { display: none; }
+  }
+  /* widget com poucas colunas: capa menor para sobrar espaço para os controles */
+  @container cmp (max-width: 380px) {
+    .compact > .art { max-height: 84px; }
+    .compact { gap: 12px; }
+  }
   .lyrbtn { width: 26px; height: 26px; color: var(--faint); }
   .lyrbtn :global(svg) { width: 14px; height: 14px; }
   .lyrbtn.on { color: var(--accent); }
@@ -84,7 +108,7 @@
   }
   .art :global(svg) { width: 38%; height: 38%; }
   .art img { width: 100%; height: 100%; object-fit: cover; }
-  .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; container: info / inline-size; }
   .title { font-size: 16px; font-weight: 600; }
   .between { justify-content: space-between; }
   .t { font-size: 11px; }
