@@ -8,6 +8,12 @@ use tauri::{AppHandle, LogicalSize, Manager, Monitor, PhysicalPosition, WebviewW
 pub struct WindowCfg {
     monitor: Option<String>,
     fullscreen: bool,
+    // fora da barra de tarefas (acesso pela bandeja); configs antigas sem o campo ficam com true
+    #[serde(default = "yes")]
+    hide_taskbar: bool,
+}
+fn yes() -> bool {
+    true
 }
 
 #[derive(Serialize)]
@@ -32,7 +38,7 @@ pub fn load_cfg(app: &AppHandle) -> WindowCfg {
         .and_then(|c| db::kv_read(&c, "window"))
         .and_then(|s| serde_json::from_str(&s).ok())
         // primeira abertura: janela no primário, para escolher o monitor nas configurações
-        .unwrap_or(WindowCfg { monitor: None, fullscreen: false })
+        .unwrap_or(WindowCfg { monitor: None, fullscreen: false, hide_taskbar: true })
 }
 
 fn pick_monitor(w: &WebviewWindow, name: &Option<String>) -> Option<Monitor> {
@@ -48,6 +54,7 @@ pub fn apply(app: &AppHandle, cfg: &WindowCfg) -> Result<(), String> {
     let e = |x: tauri::Error| x.to_string();
     let Some(m) = pick_monitor(&w, &cfg.monitor) else { return Ok(()) };
     let (mp, ms, scale) = (*m.position(), *m.size(), m.scale_factor());
+    w.set_skip_taskbar(cfg.hide_taskbar).map_err(e)?;
     w.set_fullscreen(false).map_err(e)?;
     if cfg.fullscreen {
         // fullscreen do Windows usa o monitor onde a janela está: move antes
@@ -101,8 +108,8 @@ pub fn window_get(app: AppHandle) -> WindowCfg {
 }
 
 #[tauri::command]
-pub fn window_apply(app: AppHandle, monitor: Option<String>, fullscreen: bool) -> Result<(), String> {
-    save_apply(&app, WindowCfg { monitor, fullscreen })
+pub fn window_apply(app: AppHandle, monitor: Option<String>, fullscreen: bool, hide_taskbar: bool) -> Result<(), String> {
+    save_apply(&app, WindowCfg { monitor, fullscreen, hide_taskbar })
 }
 
 fn toggle_visible(app: &AppHandle) {

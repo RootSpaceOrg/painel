@@ -8,7 +8,7 @@
   const COLORS = ['#7fe0d0', '#cfe08e', '#f3a9c4', '#e8c27c', '#8cc8f0', '#c3a6f0', '#7dbb6a'];
 
   let monitors = $state<api.MonitorInfo[]>([]);
-  let win = $state<api.WindowCfg>({ monitor: null, fullscreen: true });
+  let win = $state<api.WindowCfg>({ monitor: null, fullscreen: true, hide_taskbar: true });
   let feeds = $state<api.Feed[]>([]);
   let nf = $state({ name: '', url: '', color: COLORS[0] });
   let syncing = $state(false);
@@ -39,7 +39,7 @@
   const say = (e: unknown) => (msg = String(e));
   const monLabel = (m: api.MonitorInfo) =>
     `${m.width}×${m.height}${m.primary ? ' · principal' : ''} — ${m.name.replace(/^[\\.]+/, '')}`;
-  const applyWindow = () => api.windowApply(win.monitor, win.fullscreen).catch(say);
+  const applyWindow = () => api.windowApply(win.monitor, win.fullscreen, win.hide_taskbar).catch(say);
 
   async function pickWallpaper(e: Event) {
     const f = (e.currentTarget as HTMLInputElement).files?.[0];
@@ -114,7 +114,9 @@
           <label class="row"><input type="checkbox" bind:checked={win.fullscreen} /> Tela cheia</label>
           <div><button class="primary" onclick={applyWindow}>Aplicar</button></div>
           <label class="row"><input type="checkbox" bind:checked={autostart} onchange={() => api.autostartSet(autostart).catch(say)} /> Iniciar com o Windows</label>
-          <p class="hint">Fechar a janela só esconde; para sair use o ícone na bandeja.</p>
+          <label class="row"><input type="checkbox" bind:checked={win.hide_taskbar} onchange={applyWindow} /> Não mostrar na barra de tarefas</label>
+          <p class="hint">Fora da barra de tarefas, o Painel fica no ícone da bandeja (perto do relógio do Windows): clique para mostrar ou esconder.
+            Fechar a janela só esconde; para sair use o menu do ícone na bandeja.</p>
 
         {:else if tab === 'visual'}
           <h3>Visual</h3>
