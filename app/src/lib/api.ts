@@ -96,10 +96,11 @@ export const kvSet = (key: string, value: string) => invoke<void>('kv_set', { ke
 
 // ---------- Janela / monitor ----------
 export interface MonitorInfo { name: string; width: number; height: number; x: number; y: number; primary: boolean }
-export interface WindowCfg { monitor: string | null; fullscreen: boolean }
+export interface WindowCfg { monitor: string | null; fullscreen: boolean; hide_taskbar: boolean } // hide_taskbar: só na bandeja
 export const monitorsList = () => invoke<MonitorInfo[]>('monitors_list');
 export const windowGet = () => invoke<WindowCfg>('window_get');
-export const windowApply = (monitor: string | null, fullscreen: boolean) => invoke<void>('window_apply', { monitor, fullscreen });
+export const windowApply = (monitor: string | null, fullscreen: boolean, hideTaskbar: boolean) =>
+  invoke<void>('window_apply', { monitor, fullscreen, hideTaskbar });
 
 // ---------- Letras (LRCLIB) ----------
 export interface Lyrics { syncedLyrics: string | null; plainLyrics: string | null; instrumental: boolean }
