@@ -1,13 +1,13 @@
 <script lang="ts">
-  // Academia · Semana: peso (média móvel de 7 dias), adesão às metas e média de refeições.
-  import { fit, loadFit } from '../lib/fit.svelte';
-  import { targets, movingAvg, weightTrend, adherence, dayTotals, lastDays } from '../lib/fit.ts';
+  // Academia · Peso: média de 7 dias (número grande), variação, dias na meta e gráfico.
+  import { fit, loadFit, fitTargets } from '../lib/fit.svelte';
+  import { movingAvg, weightTrend, adherence, dayTotals, lastDays } from '../lib/fit.ts';
   import { parseDay, fmtShort } from '../lib/util';
 
   let { expanded = false }: { expanded?: boolean } = $props();
   $effect(() => { loadFit(); });
 
-  const tg = $derived(targets(fit.profile));
+  const tg = $derived(fitTargets());
   const span = $derived(expanded ? 28 : 14);
   const series = $derived(movingAvg(fit.days, fit.today, span));
   const tr = $derived(weightTrend(fit.days, fit.today));
@@ -33,26 +33,19 @@
 
 {#snippet stats()}
   <div class="stats">
-    <div class="st">
+    <div class="st main">
       <span class="label">Peso · média 7 dias</span>
       <span class="v mono">{kg(tr.cur)}<small> kg</small></span>
-      {#if tr.delta !== null}<span class="d" class:up={tr.delta > 0} class:down={tr.delta < 0}>{tr.delta > 0 ? '▲' : tr.delta < 0 ? '▼' : '='} {kg(Math.abs(tr.delta))} kg vs. semana anterior</span>
-      {:else}<span class="d faint">pese-se de manhã para ver a tendência</span>{/if}
+      {#if tr.delta !== null}<span class="d" class:up={tr.delta > 0} class:down={tr.delta < 0}>{tr.delta > 0 ? '▲' : tr.delta < 0 ? '▼' : '='} {kg(Math.abs(tr.delta))} kg na semana</span>
+      {:else}<span class="d faint">registre o peso para ver a tendência</span>{/if}
     </div>
     <div class="st">
       <span class="label">Calorias na meta</span>
-      <span class="v mono">{ad.kcalHit}<small>/7</small></span>
-      <span class="d faint">±10% de {tg.kcal.toLocaleString('pt-BR')} kcal</span>
+      <span class="v mono">{ad.kcalHit}<small>/7 dias</small></span>
     </div>
     <div class="st">
       <span class="label">Proteína na meta</span>
-      <span class="v mono">{ad.protHit}<small>/7</small></span>
-      <span class="d faint">≥ {tg.protein} g</span>
-    </div>
-    <div class="st">
-      <span class="label">Refeições por dia</span>
-      <span class="v mono">{ad.avgMeals.toLocaleString('pt-BR')}</span>
-      <span class="d faint">{ad.logged} dias lançados</span>
+      <span class="v mono">{ad.protHit}<small>/7 dias</small></span>
     </div>
   </div>
 {/snippet}
@@ -86,7 +79,7 @@
 
     {#if expanded}
       <table>
-        <thead><tr><th>Dia</th><th>Peso</th><th>kcal</th><th>Proteína</th><th>Refeições</th><th>Treino</th></tr></thead>
+        <thead><tr><th>Dia</th><th>Peso</th><th>kcal</th><th>Proteína</th><th>Lançamentos</th></tr></thead>
         <tbody>
           {#each week as w}
             {@const s = dayTotals(w.log)}
@@ -96,7 +89,6 @@
               <td class="mono" class:ok={s.meals && Math.abs(s.kcal - tg.kcal) <= tg.kcal * 0.1}>{s.meals ? s.kcal.toLocaleString('pt-BR') : '—'}</td>
               <td class="mono" class:ok={s.meals && s.p >= tg.protein * 0.95}>{s.meals ? `${Math.round(s.p)} g` : '—'}</td>
               <td class="mono">{s.meals || '—'}</td>
-              <td class="faint">{Object.entries(w.log?.training ?? {}).filter(([, n]) => n > 0).map(([g]) => g).join(', ') || '—'}</td>
             </tr>
           {/each}
         </tbody>
@@ -107,10 +99,12 @@
 
 <style>
   .wk { height: 100%; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+  .stats { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; align-items: end; }
   .st { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .v { font-size: 22px; font-weight: 300; }
-  .x .v { font-size: 30px; }
+  .v { font-size: 26px; font-weight: 300; line-height: 1.1; }
+  .main .v { font-size: 44px; }
+  .x .v { font-size: 34px; }
+  .x .main .v { font-size: 60px; }
   .v small { font-size: 12px; color: var(--muted); }
   .d { font-size: 11px; color: var(--muted); }
   .d.up { color: var(--amber); }

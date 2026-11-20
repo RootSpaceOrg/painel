@@ -1,51 +1,42 @@
 // Academia: tipos e cálculos (puros, testados em scripts/fit.check.ts).
-// Método: manutenção ≈ 33 kcal/kg por 1–2 semanas; confirmada, aplica o objetivo (±5–10%).
-// Proteína 1,6–2,2 g/kg fixa em todas as fases; gordura ~1 g/kg; carboidrato = o que sobra.
+// Meta simples: manutenção = 33 kcal/kg (ou a sua, se souber), objetivo ±5–10%;
+// proteína 1,6–2,2 g/kg; gordura ~1 g/kg; carboidrato = o que sobra.
 import { addDays, dayKey, parseDay } from './util.ts';
 
 export type Goal = 'cut' | 'maintain' | 'bulk';
 export const GOAL_LABEL: Record<Goal, string> = { cut: 'Cortar', maintain: 'Manter', bulk: 'Ganhar' };
 
 export interface FitProfile {
-  weight: number;              // kg, informado
+  weight: number;              // kg informado; as contas usam a média das pesagens quando houver
   goal: Goal;
   adjust: number;              // % do objetivo (5–10)
   proteinGkg: number;          // 1,6–2,2
   fatGkg: number;              // ~1
-  maintenance: number | null;  // kcal medida e confirmada; null = descobrindo
-  estimate: number | null;     // estimativa ajustada durante a descoberta (null = 33 × peso)
-  review: number;              // % acumulado das revisões de fase (ex.: -5)
+  maintenance: number | null;  // kcal, se você souber; null = 33 × peso
   targetWeight: number | null; // linha da meta no gráfico
-  phaseStart: string;          // 'YYYY-MM-DD' início da fase atual (revisão a cada 14 dias)
 }
-export const defaultProfile = (today: string): FitProfile => ({
-  weight: 75, goal: 'maintain', adjust: 7, proteinGkg: 1.8, fatGkg: 1, maintenance: null, estimate: null, review: 0, targetWeight: null, phaseStart: today,
-});
+export const defaultProfile = (): FitProfile => ({ weight: 75, goal: 'maintain', adjust: 7, proteinGkg: 1.8, fatGkg: 1, maintenance: null, targetWeight: null });
 
 export interface Food { id: string; name: string; kcal: number; p: number; c: number; f: number; portion: { name: string; grams: number } | null; source: string } // por 100 g/ml
 export interface Item { name: string; grams: number; kcal: number; p: number; c: number; f: number }
-export interface Meal { id: string; name: string; items: Item[] }
+export interface Meal { id: string; name: string; items: Item[] } // um lançamento (refeição cadastrada, alimento ou só kcal)
 export interface Template { id: string; name: string; items: { foodId: string; grams: number }[] }
-export interface DayLog { weight: number | null; meals: Meal[]; training: Record<string, number> } // grupo → séries
-export const emptyDay = (): DayLog => ({ weight: null, meals: [], training: {} });
-
-export const GROUPS = ['Peito', 'Costas', 'Ombros', 'Bíceps', 'Tríceps', 'Quadríceps', 'Posterior', 'Glúteos', 'Panturrilha', 'Abdômen'];
-export const SETS_MIN = 5, SETS_MAX = 12, FREQ_MIN = 2, FREQ_MAX = 3;
+export interface DayLog { weight: number | null; meals: Meal[] }
+export const emptyDay = (): DayLog => ({ weight: null, meals: [] });
 
 const r = (x: number) => Math.round(x);
 const r1 = (x: number) => Math.round(x * 10) / 10;
 
 // ---------- metas ----------
-export function targets(p: FitProfile) {
-  const estimated = p.maintenance === null;
-  const maintenance = p.maintenance ?? p.estimate ?? r(33 * p.weight);
+/** `weight`: peso usado nas contas (média das pesagens, se houver; senão o do perfil). */
+export function targets(p: FitProfile, weight = p.weight) {
+  const maintenance = p.maintenance ?? r(33 * weight);
   const sign = p.goal === 'cut' ? -1 : p.goal === 'bulk' ? 1 : 0;
-  // descobrindo a manutenção: come na manutenção estimada; o objetivo só entra depois de confirmar
-  const kcal = estimated ? maintenance : r(maintenance * (1 + (sign * p.adjust) / 100) * (1 + p.review / 100));
-  const protein = r(p.proteinGkg * p.weight);
-  const fat = r(p.fatGkg * p.weight);
+  const kcal = r(maintenance * (1 + (sign * p.adjust) / 100));
+  const protein = r(p.proteinGkg * weight);
+  const fat = r(p.fatGkg * weight);
   const carbs = Math.max(0, r((kcal - protein * 4 - fat * 9) / 4));
-  return { estimated, maintenance, kcal, protein, fat, carbs };
+  return { maintenance, kcal, protein, fat, carbs, weight };
 }
 export type Targets = ReturnType<typeof targets>;
 
@@ -100,49 +91,24 @@ export function adherence(days: Days, end: string, t: Targets) {
   return { kcalHit, protHit, logged, avgMeals: logged ? r1(meals / logged) : 0 };
 }
 
-export const KCAL_PER_KG = 7700; // energia aproximada de 1 kg de peso corporal
-
-/** Achar a manutenção: precisa de ≥4 pesagens em cada uma das 2 semanas. Estável = ±0,2 kg. */
-export function maintenanceCheck(days: Days, end: string, p: FitProfile) {
-  const tr = weightTrend(days, end);
-  if (tr.nCur < 4 || tr.nPrev < 4 || tr.delta === null) return { ready: false as const, trend: tr };
-  const eaten = lastDays(days, end, 14).map(x => dayTotals(x.log)).filter(s => s.meals).map(s => s.kcal);
-  const current = targets(p).maintenance;
-  const measured = eaten.length >= 7 ? r(avg(eaten)!) : current; // o que você comeu de fato nessas 2 semanas
-  if (Math.abs(tr.delta) <= 0.2) return { ready: true as const, stable: true, trend: tr, measured, suggested: measured };
-  // peso mudou: ajusta pelo equivalente energético da variação semanal, limitado a ±15%
-  const change = Math.max(-0.15 * measured, Math.min(0.15 * measured, (-tr.delta * KCAL_PER_KG) / 7));
-  return { ready: true as const, stable: false, trend: tr, measured, suggested: r(measured + change) };
+/** Último peso registrado até `end` (para o − / + já partir dele). */
+export function lastWeight(days: Days, end: string): number | null {
+  const k = Object.keys(days).filter(d => d <= end && typeof days[d]?.weight === 'number').sort().pop();
+  return k ? days[k].weight : null;
 }
 
-/** Revisão da fase a cada 14 dias: se o peso não andou para o lado do objetivo, sugere ±5% nas calorias. */
-export function phaseReview(days: Days, end: string, p: FitProfile) {
-  const since = Math.round((parseDay(end).getTime() - parseDay(p.phaseStart).getTime()) / 864e5);
-  const tr = weightTrend(days, end);
-  if (p.maintenance === null || since < 14 || tr.delta === null || tr.nCur < 4 || tr.nPrev < 4) return { due: false as const, since, trend: tr };
-  const d = tr.delta;
-  let pct = 0;
-  if (p.goal === 'cut' && d > -0.1) pct = -5;
-  else if (p.goal === 'bulk' && d < 0.05) pct = 5;
-  else if (p.goal === 'maintain' && Math.abs(d) > 0.3) pct = d > 0 ? -5 : 5;
-  return { due: true as const, since, trend: tr, pct };
-}
-
-/** Volume da semana (segunda a domingo de `end`): séries e frequência por grupo. */
-export function weekVolume(days: Days, end: string) {
-  const e = parseDay(end);
-  const monday = addDays(e, -((e.getDay() + 6) % 7));
-  const out: Record<string, { sets: number; freq: number }> = {};
-  for (const g of GROUPS) out[g] = { sets: 0, freq: 0 };
-  for (let i = 0; i < 7; i++) {
-    const log = days[dayKey(addDays(monday, i))];
-    for (const [g, sets] of Object.entries(log?.training ?? {})) {
-      if (!sets) continue;
-      out[g] ??= { sets: 0, freq: 0 };
-      out[g].sets += sets;
-      out[g].freq++;
-    }
-  }
+/** Itens lançados recentemente (sem repetir nome+gramas), do mais novo ao mais antigo: viram botões de um toque. */
+export function recentItems(days: Days, end: string, n = 6, lookback = 21) {
+  const seen = new Set<string>(), out: Item[] = [];
+  for (const { log } of lastDays(days, end, lookback).reverse())
+    for (const m of [...(log?.meals ?? [])].reverse())
+      for (const it of m.items) {
+        const k = `${it.name}|${it.grams}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(it);
+        if (out.length >= n) return out;
+      }
   return out;
 }
 
