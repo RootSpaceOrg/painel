@@ -3,9 +3,9 @@
 //  1. Spotify conectado e tocando → a barra de volume do próprio Spotify (Web API; exige Premium)
 //  2. sessão de áudio do app que está tocando no mixer do Windows (ex.: YouTube no navegador)
 //  3. volume geral
-import { audioState, audioSetMaster, audioSetSession, spotifyApi } from './api';
+import { audioState, audioSetMaster, audioSetSession } from './api';
 import { live } from './state.svelte';
-import { spx } from './spotify.svelte';
+import { spx, blocked, setSpotifyVolume } from './spotify.svelte';
 import { sameApp } from './util';
 import { iconFor } from './icons';
 
@@ -36,13 +36,11 @@ export async function loadVol() {
     const hits = id ? a.sessions.filter(x => x.pid !== 0 && sameApp(id, x.name)) : [];
     av.target = hits.length ? { pids: hits.map(x => x.pid), name: hits[0].name, exe: hits[0].exe } : null;
     updateIcon(av.target?.exe ?? '');
-    if (spx.on && !spOff && sameApp(id, 'Spotify')) {
-      const dev = (await spotifyApi('GET', '/me/player').catch(() => null))?.device;
-      if (dev?.supports_volume && typeof dev.volume_percent === 'number') {
-        if (!dragging) av.vol = dev.volume_percent / 100;
-        av.spVol = true;
-        return;
-      }
+    // volume do app Spotify vem do estado do Spotify (consulta por faixa + a cada 60 s), sem chamar a API aqui
+    if (spx.on && !spOff && !blocked() && spx.vol !== null && sameApp(id, 'Spotify')) {
+      if (!dragging && spPending === null) av.vol = spx.vol;
+      av.spVol = true;
+      return;
     }
     av.spVol = false;
     av.vol = hits.length ? hits[0].volume : a.master;
@@ -65,8 +63,9 @@ function sendSpotifyVol() {
   if (spPending === null) { spTimer = 0; return; }
   const pct = spPending;
   spPending = null;
-  spotifyApi('PUT', `/me/player/volume?volume_percent=${pct}`).catch(() => {
-    spOff = true; // recusou: passa a usar o mixer do Windows
+  setSpotifyVolume(pct / 100).catch(e => {
+    // recusou (ex.: sem Premium): mixer do Windows até reiniciar; bloqueio (429) volta sozinho quando passar
+    if (!String(e).startsWith('429')) spOff = true;
     av.spVol = false;
     if (av.vol !== null) setVol(av.vol);
   });

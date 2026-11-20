@@ -163,7 +163,28 @@ fn connect(app: &AppHandle) -> Result<(), String> {
     store_token_response(app, v, None).map(|_| ())
 }
 
+/// O limite da Spotify é por endpoint: agrupa por "/me/player", "/me/library", "/playlists"…
+fn limit_group(path: &str) -> String {
+    let segs: Vec<&str> = path.split('?').next().unwrap_or("").split('/').filter(|s| !s.is_empty()).collect();
+    let n = if segs.first() == Some(&"me") { 2 } else { 1 };
+    format!("/{}", segs.iter().take(n).copied().collect::<Vec<_>>().join("/"))
+}
+/// Bloqueio por excesso de chamadas (429) desse grupo: até quando não chamar (ms), salvo para valer após reiniciar.
+fn blocked_until(app: &AppHandle, group: &str) -> i64 {
+    kv(app, &format!("spotify_blocked:{group}")).and_then(|v| v.parse().ok()).unwrap_or(0)
+}
+/// Erro padronizado de bloqueio: "429: retry-after=<segundos>" (a UI lê o tempo daqui).
+fn blocked_err(until: i64) -> String {
+    format!("429: retry-after={}", ((until - now_ms()) / 1000).max(1))
+}
+
 fn call(app: &AppHandle, method: &str, path: &str, body: &Option<Value>) -> Result<Value, String> {
+    // respeita o Retry-After: insistir durante o bloqueio só o prolonga
+    let group = limit_group(path);
+    let until = blocked_until(app, &group);
+    if now_ms() < until {
+        return Err(blocked_err(until));
+    }
     let mut t = tokens(app).ok_or("Spotify não conectado")?;
     if now_ms() >= t.expires_at {
         t = refresh(app, &t)?;
@@ -183,6 +204,12 @@ fn call(app: &AppHandle, method: &str, path: &str, body: &Option<Value>) -> Resu
                 return Ok(serde_json::from_str(&text).unwrap_or(Value::Null));
             }
             Err(ureq::Error::Status(401, _)) if attempt == 0 => t = refresh(app, &t)?,
+            Err(ureq::Error::Status(429, r)) => {
+                let secs: i64 = r.header("Retry-After").and_then(|v| v.trim().parse().ok()).unwrap_or(60);
+                let until = now_ms() + secs.max(1) * 1000;
+                let _ = set_kv(app, &format!("spotify_blocked:{group}"), &until.to_string());
+                return Err(blocked_err(until));
+            }
             Err(e) => return Err(ureq_err(e)),
         }
     }
@@ -217,4 +244,18 @@ pub async fn spotify_api(app: AppHandle, method: String, path: String, body: Opt
         return Err("path deve começar com /".into());
     }
     blocking(move || call(&app, &method, &path, &body)).await
+}
+
+#[cfg(test)]
+mod limit_tests {
+    #[test]
+    fn groups() {
+        assert_eq!(super::limit_group("/me/player"), "/me/player");
+        assert_eq!(super::limit_group("/me/player/queue"), "/me/player");
+        assert_eq!(super::limit_group("/me/player/volume?volume_percent=30"), "/me/player");
+        assert_eq!(super::limit_group("/me/library/contains?uris=x"), "/me/library");
+        assert_eq!(super::limit_group("/me"), "/me");
+        assert_eq!(super::limit_group("/playlists/abc/items?limit=100"), "/playlists");
+        assert_eq!(super::limit_group("/artists/xyz"), "/artists");
+    }
 }
