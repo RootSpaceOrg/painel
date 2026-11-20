@@ -1,6 +1,6 @@
 // node scripts/fit.check.ts — cálculos da aba Academia
 import assert from 'node:assert';
-import { targets, itemFor, dayTotals, weightTrend, adherence, movingAvg, lastWeight, recentItems, defaultProfile, type Days } from '../src/lib/fit.ts';
+import { targets, itemFor, dayTotals, weightTrend, adherence, movingAvg, lastWeight, recentItems, recentFoodIds, firstWeight, migrateFood, defaultProfile, type Days } from '../src/lib/fit.ts';
 import { addDays, dayKey, parseDay } from '../src/lib/util.ts';
 
 const END = '2026-11-20';
@@ -53,4 +53,17 @@ days[END].meals.push({ id: 'b', name: 'Almoço', items: [it('Frango', 150, 239, 
 const rec = recentItems(days, END);
 assert.deepEqual(rec.slice(0, 3).map(x => x.name), ['Frango', 'Base', 'Arroz']);
 assert.equal(rec.filter(x => x.name === 'Frango').length, 1);
+// itens guardam de qual alimento vieram (para editar depois)
+assert.equal(itemFor({ id: 'ovo', name: 'Ovo', kcal: 146, p: 13.3, c: 0.6, f: 9.5 }, 100).foodId, 'ovo');
+days[END].meals.push({ id: 'c', name: 'Ovo', items: [{ ...it('Ovo', 100, 146, 13), foodId: 'ovo' }] });
+days[day(-2)].meals.push({ id: 'd', name: 'x', items: [{ ...it('Arroz', 100, 128, 2), foodId: 'arroz' }, { ...it('Ovo', 50, 73, 7), foodId: 'ovo' }] });
+assert.deepEqual(recentFoodIds(days, END), ['ovo', 'arroz']);
+// primeiro peso
+assert.deepEqual(firstWeight(days), { date: day(-13), weight: 80 });
+assert.equal(firstWeight({}), null);
+// migração: porção única antiga vira lista
+const old = { id: 'x', name: 'X', kcal: 1, p: 0, c: 0, f: 0, source: '', portion: { name: 'un', grams: 10 } } as any;
+assert.deepEqual(migrateFood(old).portions, [{ name: 'un', grams: 10 }]);
+assert.equal('portion' in migrateFood(old), false);
+assert.deepEqual(migrateFood({ ...old, portion: null }).portions, []);
 console.log('fit ok');
