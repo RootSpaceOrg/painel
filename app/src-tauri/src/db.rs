@@ -47,6 +47,14 @@ pub fn kv_get(db: State<Db>, key: String) -> R<Option<String>> {
 pub fn kv_set(db: State<Db>, key: String, value: String) -> R<()> {
     kv_write(&*db.0.lock().map_err(e)?, &key, &value)
 }
+/// Todas as chaves que começam com `prefix` (ex.: 'fit:day:'), em ordem; `[chave, valor]`.
+#[tauri::command]
+pub fn kv_prefix(db: State<Db>, prefix: String) -> R<Vec<(String, String)>> {
+    let c = db.0.lock().map_err(e)?;
+    let mut st = c.prepare("SELECT key, value FROM kv WHERE substr(key, 1, length(?1)) = ?1 ORDER BY key").map_err(e)?;
+    let rows = st.query_map([&prefix], |r| Ok((r.get(0)?, r.get(1)?))).map_err(e)?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(e)
+}
 
 // ---------- todos ----------
 #[derive(Serialize, Deserialize)]

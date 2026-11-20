@@ -1,7 +1,8 @@
 import { spInit, spRefresh } from './spotify.svelte';
 import { kvGet, kvSet, onMedia, onSys, mediaArt, wallpaperGet, type MediaState, type SysSample } from './api';
 
-export type WidgetType = 'clock' | 'media' | 'todo' | 'habits' | 'agenda' | 'hardware' | 'mixer' | 'bluetooth';
+export type WidgetType = 'clock' | 'media' | 'todo' | 'habits' | 'agenda' | 'hardware' | 'mixer' | 'bluetooth'
+  | 'fitToday' | 'fitWeek' | 'fitTraining' | 'fitPlan' | 'fitFoods';
 export interface Placed { id: string; type: WidgetType; x: number; y: number; w: number; h: number }
 export interface Tab { id: string; name: string; widgets: Placed[] }
 
@@ -12,6 +13,13 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const w = (type: WidgetType, x: number, y: number, ww: number, h: number): Placed => ({ id: uid(), type, x, y, w: ww, h });
 
 // Pensado para 1366x768: 12x8 células.
+// Academia: Hoje (registro) | Semana + Treino | Plano + Alimentos
+const fitTab = (): Tab => ({
+  id: uid(), name: 'Academia', widgets: [
+    w('fitToday', 0, 0, 4, 8), w('fitWeek', 4, 0, 5, 4), w('fitTraining', 4, 4, 5, 4), w('fitPlan', 9, 0, 3, 5), w('fitFoods', 9, 5, 3, 3),
+  ],
+});
+
 const defaultTabs = (): Tab[] => [
   {
     id: uid(), name: 'Início', widgets: [
@@ -20,6 +28,7 @@ const defaultTabs = (): Tab[] => [
     ],
   },
   { id: uid(), name: 'Sistema', widgets: [w('hardware', 0, 0, 8, 8), w('mixer', 8, 0, 4, 5), w('clock', 8, 5, 4, 3)] },
+  fitTab(),
 ];
 
 export const ui = $state({
@@ -89,6 +98,11 @@ const push = (a: number[], v: number) => { a.push(v); if (a.length > HIST) a.shi
 export async function boot() {
   const [layout, p] = await Promise.all([kvGet('layout'), kvGet('ui')]);
   try { if (layout) ui.tabs = JSON.parse(layout); } catch { /* layout corrompido: fica o padrão */ }
+  // layout salvo antes da aba Academia existir: acrescenta uma vez (se excluir depois, não volta)
+  if (layout && !(await kvGet('migr:fit'))) {
+    if (!ui.tabs.some(t => t.widgets.some(x => x.type.startsWith('fit')))) { ui.tabs.push(fitTab()); saveLayout(); }
+    kvSet('migr:fit', '1');
+  }
   try { if (p) Object.assign(prefs, JSON.parse(p)); } catch { /* idem */ }
   loadWallpaper();
 

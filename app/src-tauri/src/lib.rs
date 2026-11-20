@@ -3,6 +3,7 @@ mod audio;
 mod autostart;
 mod bluetooth;
 mod db;
+mod food;
 mod lyrics;
 mod media;
 mod spotify;
@@ -43,7 +44,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            db::kv_get, db::kv_set,
+            db::kv_get, db::kv_set, db::kv_prefix,
+            food::food_search,
             db::todo_list, db::todo_save, db::todo_delete,
             db::habit_list, db::habit_save, db::habit_delete, db::habit_mark,
             db::event_save, db::event_delete, db::feed_save, db::feed_delete,
