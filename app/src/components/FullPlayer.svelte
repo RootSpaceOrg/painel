@@ -4,6 +4,7 @@
   import { live, prefs, savePrefs } from '../lib/state.svelte';
   import { mediaControl, mediaSelect, spotifyStatus, spotifyApi } from '../lib/api';
   import VolumeControl from './VolumeControl.svelte';
+  import { spx, toggleLike, useSpotifyPoll } from '../lib/spotify.svelte';
   import { fmtDuration, fmtTime, fmtWeekday } from '../lib/util';
   import Icon from './Icon.svelte';
   import WaveBar from './WaveBar.svelte';
@@ -50,7 +51,6 @@
       sp.bg = art?.images?.[0]?.url || albumImg;
     }
     // /me/tracks foi desativado pela Spotify (403); a biblioteca agora é /me/library com URIs
-    sp.liked = sp.uri ? ((await safe(spotifyApi<boolean[]>('GET', `/me/library/contains?uris=${sp.uri}`), [null as any]))[0] ?? null) : null;
     sp.queue = ((await safe(spotifyApi('GET', '/me/player/queue'), null))?.queue ?? []).slice(0, 20);
     sp.devices = (await safe(spotifyApi('GET', '/me/player/devices'), null))?.devices ?? [];
   }
@@ -70,7 +70,6 @@
   });
 
   const act = (p: Promise<unknown>) => p.then(() => setTimeout(refresh, 600)).catch(e => (sp.err = String(e)));
-  const toggleLike = () => act(spotifyApi(sp.liked ? 'DELETE' : 'PUT', `/me/library?uris=${sp.uri}`));
   const toggleShuffle = () => act(spotifyApi('PUT', `/me/player/shuffle?state=${!sp.shuffle}`));
   const nextRepeat = () => act(spotifyApi('PUT', `/me/player/repeat?state=${sp.repeat === 'off' ? 'context' : sp.repeat === 'context' ? 'track' : 'off'}`));
   const playContext = (uri: string) => act(spotifyApi('PUT', '/me/player/play', { context_uri: uri }));
@@ -79,7 +78,10 @@
   const artists = (t: any) => t.artists?.map((a: any) => a.name).join(', ') ?? t.show?.name ?? '';
   const bg = $derived(sp.bg || live.art);
 
-  const nice = (e: string) => (e.includes('403') ? 'A Spotify recusou um comando (alguns exigem Premium).' : e);
+  $effect(() => useSpotifyPoll());
+  const nice = (e: string) =>
+    e.startsWith('429') ? `A Spotify pausou o acesso por excesso de chamadas; volta às ${fmtTime.format(spx.blockedUntil || Date.now())}.`
+    : e.includes('403') ? 'A Spotify recusou um comando (alguns exigem Premium).' : e;
 </script>
 
 <div class="fp" bind:this={scroller} style="--accent:{accent}">
@@ -121,9 +123,9 @@
           <span class="ellipsis">{m.title}</span>
           <span class="ellipsis faint">{m.artist}</span>
         </div>
-        {#if sp.on && sp.uri}
-          <button class="ghost icon" class:liked={sp.liked} aria-label={sp.liked ? 'Remover das curtidas' : 'Curtir'} onclick={toggleLike}>
-            <Icon name="heart" filled={!!sp.liked} />
+        {#if spx.on && spx.liked !== null}
+          <button class="ghost icon" class:liked={spx.liked} aria-label={spx.liked ? 'Remover das curtidas' : 'Curtir'} onclick={toggleLike}>
+            <Icon name="heart" filled={!!spx.liked} />
           </button>
         {/if}
       </div>

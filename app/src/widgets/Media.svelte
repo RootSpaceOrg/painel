@@ -2,6 +2,8 @@
   import { live, prefs, savePrefs } from '../lib/state.svelte';
   import Lyrics from '../components/Lyrics.svelte';
   import VolumeControl from '../components/VolumeControl.svelte';
+  import { spx, toggleLike, useSpotifyPoll, blocked } from '../lib/spotify.svelte';
+  import { fmtTime } from '../lib/util';
   import { mediaControl } from '../lib/api';
   import { fmtDuration } from '../lib/util';
   import Icon from '../components/Icon.svelte';
@@ -14,6 +16,8 @@
   const has = $derived(!!m?.active && !!(m.title || m.artist));
   const accent = $derived(live.artColor || 'var(--teal)');
   const seek = (s: number) => mediaControl('seek', s);
+  $effect(() => useSpotifyPoll()); // mantém curtida/volume do Spotify em dia (1 consulta por minuto)
+  const isSpotify = $derived((m?.active ?? '').toLowerCase().includes('spotify'));
 
 </script>
 
@@ -44,7 +48,10 @@
       {:else}
         <div class="title ellipsis">{m.title}</div>
         <div class="artist ellipsis muted">{m.artist}</div>
-        <div class="plc"><PlaylistChip /></div>
+        <div class="plc">
+          {#if isSpotify && blocked()}<span class="paused" title="A Spotify limita chamadas; o Painel espera para não prolongar o bloqueio">Spotify em pausa até {fmtTime.format(spx.blockedUntil)}</span>
+          {:else}<PlaylistChip />{/if}
+        </div>
       {/if}
       <div class="wave-row">
         <WaveBar position={m.position} duration={m.duration} playing={m.playing} color={accent} onseek={m.duration ? seek : undefined} />
@@ -54,6 +61,11 @@
         <span class="mono faint t">{fmtDuration(m.position)}{#if m.duration}<span class="tdur">{' / '}{fmtDuration(m.duration)}</span>{/if}</span>
         {@render controls('sm')}
         <span class="end">
+          {#if isSpotify && spx.on && spx.liked !== null}
+            <button class="ghost icon lyrbtn heart" class:on={spx.liked} aria-pressed={spx.liked}
+              aria-label={spx.liked ? 'Remover das curtidas' : 'Curtir música'} title={spx.liked ? 'Nas suas curtidas' : 'Curtir'}
+              onclick={toggleLike}><Icon name="heart" filled={spx.liked} /></button>
+          {/if}
           <button class="ghost icon lyrbtn" class:on={prefs.miniLyrics} aria-pressed={prefs.miniLyrics} title="Letra"
             aria-label={prefs.miniLyrics ? 'Esconder letra' : 'Mostrar letra'}
             onclick={() => { prefs.miniLyrics = !prefs.miniLyrics; savePrefs(); }}><Icon name="lyrics" /></button>
@@ -101,6 +113,8 @@
   .lyrbtn { width: 26px; height: 26px; color: var(--faint); }
   .lyrbtn :global(svg) { width: 14px; height: 14px; }
   .lyrbtn.on { color: var(--accent); }
+  .heart.on { color: var(--blossom); }
+  .paused { font-size: 11px; color: var(--faint); }
   .art {
     height: 100%; max-height: 150px; aspect-ratio: 1; border-radius: 12px; overflow: hidden; flex: none;
     background: rgba(190, 240, 225, 0.06); display: grid; place-items: center; color: var(--faint);
