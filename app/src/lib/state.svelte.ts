@@ -2,7 +2,7 @@ import { spInit, spRefresh } from './spotify.svelte';
 import { kvGet, kvSet, onMedia, onSys, mediaArt, wallpaperGet, type MediaState, type SysSample } from './api';
 
 export type WidgetType = 'clock' | 'media' | 'todo' | 'habits' | 'agenda' | 'hardware' | 'mixer' | 'bluetooth'
-  | 'fitToday' | 'fitWeek' | 'fitTraining' | 'fitPlan' | 'fitFoods';
+  | 'fitToday' | 'fitWeek' | 'fitPlan' | 'fitFoods';
 export interface Placed { id: string; type: WidgetType; x: number; y: number; w: number; h: number }
 export interface Tab { id: string; name: string; widgets: Placed[] }
 
@@ -13,12 +13,9 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const w = (type: WidgetType, x: number, y: number, ww: number, h: number): Placed => ({ id: uid(), type, x, y, w: ww, h });
 
 // Pensado para 1366x768: 12x8 células.
-// Academia: Hoje (registro) | Semana + Treino | Plano + Alimentos
-const fitTab = (): Tab => ({
-  id: uid(), name: 'Academia', widgets: [
-    w('fitToday', 0, 0, 4, 8), w('fitWeek', 4, 0, 5, 4), w('fitTraining', 4, 4, 5, 4), w('fitPlan', 9, 0, 3, 5), w('fitFoods', 9, 5, 3, 3),
-  ],
-});
+// Academia: Hoje (lançar) | Peso | Plano + Alimentos
+const fitWidgets = () => [w('fitToday', 0, 0, 6, 8), w('fitWeek', 6, 0, 6, 4), w('fitPlan', 6, 4, 3, 4), w('fitFoods', 9, 4, 3, 4)];
+const fitTab = (): Tab => ({ id: uid(), name: 'Academia', widgets: fitWidgets() });
 
 const defaultTabs = (): Tab[] => [
   {
@@ -102,6 +99,15 @@ export async function boot() {
   if (layout && !(await kvGet('migr:fit'))) {
     if (!ui.tabs.some(t => t.widgets.some(x => x.type.startsWith('fit')))) { ui.tabs.push(fitTab()); saveLayout(); }
     kvSet('migr:fit', '1');
+  }
+  // versão simplificada (sem treino): refaz o layout da aba Academia uma vez e tira widgets que não existem mais
+  if (layout && !(await kvGet('migr:fit2'))) {
+    for (const t of ui.tabs) {
+      if (t.name === 'Academia' && t.widgets.some(x => x.type.startsWith('fit'))) t.widgets = fitWidgets();
+      t.widgets = t.widgets.filter(x => (x.type as string) !== 'fitTraining');
+    }
+    saveLayout();
+    kvSet('migr:fit2', '1');
   }
   try { if (p) Object.assign(prefs, JSON.parse(p)); } catch { /* idem */ }
   loadWallpaper();
