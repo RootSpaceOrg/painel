@@ -21,6 +21,7 @@ if (out(`git ls-remote --tags origin ${tag}`)) fail(`A tag ${tag} já existe no 
 console.log(`\n▶ Checks`);
 sh('npm run check');
 sh('node scripts/util.check.ts');
+sh('node scripts/fit.check.ts');
 // --release reaproveita o que o build do instalador compila (o perfil debug criava ~9 GB a mais em target/)
 sh('cargo test --release -q', { cwd: 'src-tauri' });
 

@@ -131,3 +131,8 @@ export const spotifyDisconnect = () => invoke<void>('spotify_disconnect');
 // Retorna o JSON (ou null em 204). Erro = string com status e mensagem.
 export const spotifyApi = <T = any>(method: 'GET' | 'PUT' | 'POST' | 'DELETE', path: string, body?: unknown) =>
   invoke<T>('spotify_api', { method, path, body: body ?? null });
+
+// ---------- Academia ----------
+export const kvPrefix = (prefix: string) => invoke<[string, string][]>('kv_prefix', { prefix });
+export interface FoodHit { name: string; brand: string; kcal: number; p: number; c: number; f: number } // por 100 g/ml
+export const foodSearch = (query: string) => invoke<FoodHit[]>('food_search', { query }); // Open Food Facts
