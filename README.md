@@ -15,6 +15,9 @@ Depois de instalado, o Painel avisa no topo da tela quando sai versão nova (e h
 - **Clique no título de um widget** (ou no relógio) para expandir em tela cheia; `Esc` fecha.
 - **Abas**: dock embaixo; `←`/`→` ou `1`–`9` trocam.
 - **Editar layout**: lápis no dock → arraste os cards, redimensione pelo canto, `+ widget`, `+ aba`, renomeie a aba no próprio dock.
+- **Academia** (aba própria): registro do dia (peso, refeições, séries por grupo), semana (média de 7 dias, adesão, gráfico),
+  treino (5–12 séries e 2–3× por grupo), plano (metas calculadas, descoberta da manutenção a 33 kcal/kg, revisão a cada 14 dias)
+  e banco de alimentos (base TACO aproximada + busca no Open Food Facts) com refeições cadastradas.
 - **Engrenagem**: monitor/tela cheia, wallpaper, escurecer/desfoque, agendas ICS, Spotify.
 - Fechar a janela só esconde. Sair: ícone na bandeja.
 
@@ -38,6 +41,7 @@ npm run tauri dev     # app com hot reload
 npm run tauri build   # instalador em src-tauri/target/release/bundle/nsis/
 npm run check         # tipos da UI
 node scripts/util.check.ts                # streak/recorrência
+node scripts/fit.check.ts                 # cálculos da Academia
 cd src-tauri && cargo test                # parser ICS
 ```
 
