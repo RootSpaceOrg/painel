@@ -10,7 +10,6 @@ import Mixer from './Mixer.svelte';
 import Bluetooth from './Bluetooth.svelte';
 import FitToday from './FitToday.svelte';
 import FitWeek from './FitWeek.svelte';
-import FitTraining from './FitTraining.svelte';
 import FitPlan from './FitPlan.svelte';
 import FitFoods from './FitFoods.svelte';
 
@@ -25,9 +24,8 @@ export const WIDGETS: Record<WidgetType, WidgetDef> = {
   hardware: { label: 'Sistema', comp: Hardware, size: [6, 3], min: [3, 2] },
   mixer: { label: 'Volume', comp: Mixer, size: [3, 3], min: [2, 2] },
   bluetooth: { label: 'Bluetooth', comp: Bluetooth, size: [3, 2], min: [2, 2] },
-  fitToday: { label: 'Academia · Hoje', comp: FitToday, size: [4, 8], min: [3, 5] },
-  fitWeek: { label: 'Academia · Semana', comp: FitWeek, size: [5, 4], min: [3, 3] },
-  fitTraining: { label: 'Academia · Treino', comp: FitTraining, size: [5, 4], min: [3, 3] },
-  fitPlan: { label: 'Academia · Plano', comp: FitPlan, size: [3, 5], min: [3, 4] },
-  fitFoods: { label: 'Academia · Alimentos', comp: FitFoods, size: [3, 3], min: [2, 2] },
+  fitToday: { label: 'Hoje · comida e peso', comp: FitToday, size: [6, 8], min: [4, 5] },
+  fitWeek: { label: 'Peso', comp: FitWeek, size: [6, 4], min: [3, 3] },
+  fitPlan: { label: 'Metas', comp: FitPlan, size: [3, 4], min: [3, 3] },
+  fitFoods: { label: 'Alimentos e refeições', comp: FitFoods, size: [3, 4], min: [2, 2] },
 };

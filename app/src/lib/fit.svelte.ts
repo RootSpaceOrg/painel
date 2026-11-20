@@ -1,12 +1,12 @@
 // Estado da aba Academia: perfil, banco de alimentos, refeições cadastradas e registros diários (kv 'fit:*').
 import { kvGet, kvSet, kvPrefix } from './api';
 import { today } from './util';
-import { defaultProfile, emptyDay, SEED_FOODS, type Days, type DayLog, type Food, type FitProfile, type Template } from './fit.ts';
+import { defaultProfile, emptyDay, lastWeight, targets, weightTrend, SEED_FOODS, type Days, type DayLog, type Food, type FitProfile, type Template } from './fit.ts';
 
 export const fit = $state({
   ready: false,
   today: today(),
-  profile: defaultProfile(today()) as FitProfile,
+  profile: defaultProfile() as FitProfile,
   foods: [] as Food[],
   templates: [] as Template[],
   days: {} as Days,
@@ -29,6 +29,10 @@ export function loadFit() {
     setInterval(() => { if (today() !== fit.today) fit.today = today(); }, 30_000); // vira o dia
   })());
 }
+
+/** Peso usado nas metas: média dos últimos 7 dias; senão o último registrado; senão o do perfil. */
+export const refWeight = () => weightTrend(fit.days, fit.today).cur ?? lastWeight(fit.days, fit.today) ?? fit.profile.weight;
+export const fitTargets = () => targets(fit.profile, refWeight());
 
 export const saveProfile = () => kvSet('fit:profile', JSON.stringify(fit.profile));
 export const saveFoods = () => kvSet('fit:foods', JSON.stringify(fit.foods));

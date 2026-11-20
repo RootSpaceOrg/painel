@@ -12,7 +12,7 @@
   const n = (v: number) => Math.round(v).toLocaleString('pt-BR');
   const foodById = (id: string) => fit.foods.find(f => f.id === id);
   const tplTotals = (t: Template) =>
-    dayTotals({ weight: null, training: {}, meals: [{ id: '', name: '', items: t.items.flatMap(i => { const f = foodById(i.foodId); return f ? [itemFor(f, i.grams)] : []; }) }] });
+    dayTotals({ weight: null, meals: [{ id: '', name: '', items: t.items.flatMap(i => { const f = foodById(i.foodId); return f ? [itemFor(f, i.grams)] : []; }) }] });
 
   // ---------- banco ----------
   let filter = $state('');
