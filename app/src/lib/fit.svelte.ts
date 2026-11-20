@@ -1,7 +1,7 @@
 // Estado da aba Academia: perfil, banco de alimentos, refeições cadastradas e registros diários (kv 'fit:*').
 import { kvGet, kvSet, kvPrefix } from './api';
 import { today } from './util';
-import { defaultProfile, emptyDay, lastWeight, targets, weightTrend, SEED_FOODS, type Days, type DayLog, type Food, type FitProfile, type Template } from './fit.ts';
+import { defaultProfile, emptyDay, lastWeight, migrateFood, targets, weightTrend, SEED_FOODS, type Days, type DayLog, type Food, type FitProfile, type Template } from './fit.ts';
 
 export const fit = $state({
   ready: false,
@@ -12,6 +12,14 @@ export const fit = $state({
   days: {} as Days,
 });
 
+/** Dia mostrado nos cards ('' = hoje) e modais abertos. */
+export const fitUi = $state({
+  date: '',
+  log: null as null | { mealId: string | null }, // modal de lançar (mealId = editando um lançamento)
+  weight: false, // modal de peso
+});
+export const fitDay = () => fitUi.date || fit.today;
+
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
 let loading: Promise<void> | null = null;
@@ -20,7 +28,7 @@ export function loadFit() {
   return (loading ??= (async () => {
     const [p, f, t, d] = await Promise.all([kvGet('fit:profile'), kvGet('fit:foods'), kvGet('fit:templates'), kvPrefix('fit:day:')]);
     try { if (p) Object.assign(fit.profile, JSON.parse(p)); } catch { /* perfil corrompido: padrão */ }
-    try { fit.foods = f ? JSON.parse(f) : SEED_FOODS.map(x => ({ ...x })); } catch { fit.foods = SEED_FOODS.map(x => ({ ...x })); }
+    try { fit.foods = f ? JSON.parse(f).map(migrateFood) : structuredClone(SEED_FOODS); } catch { fit.foods = structuredClone(SEED_FOODS); }
     try { fit.templates = t ? JSON.parse(t) : []; } catch { fit.templates = []; }
     const days: Days = {};
     for (const [k, v] of d) try { days[k.slice('fit:day:'.length)] = JSON.parse(v); } catch { /* dia corrompido: ignora */ }

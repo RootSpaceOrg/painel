@@ -78,10 +78,9 @@
   .goals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .goals button { padding: 8px 4px; border-radius: 10px; font-size: 13px; }
   .goals .on { color: var(--ink); background: var(--teal); border-color: transparent; font-weight: 600; }
-  .nums { display: grid; grid-template-columns: 1fr; gap: 8px; }
-  .x .nums { grid-template-columns: 1fr 1fr; }
+  .nums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .nums > div { display: flex; flex-direction: column; gap: 2px; }
-  .v { font-size: 38px; font-weight: 300; line-height: 1.05; }
+  .v { font-size: 30px; font-weight: 300; line-height: 1.05; }
   .x .v { font-size: 56px; }
   .v small { font-size: 16px; color: var(--muted); }
   .sub { font-size: 12px; }

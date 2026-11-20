@@ -17,8 +17,9 @@ export interface FitProfile {
 }
 export const defaultProfile = (): FitProfile => ({ weight: 75, goal: 'maintain', adjust: 7, proteinGkg: 1.8, fatGkg: 1, maintenance: null, targetWeight: null });
 
-export interface Food { id: string; name: string; kcal: number; p: number; c: number; f: number; portion: { name: string; grams: number } | null; source: string } // por 100 g/ml
-export interface Item { name: string; grams: number; kcal: number; p: number; c: number; f: number }
+export interface Portion { name: string; grams: number } // medida caseira (ex.: colher de sopa = 25 g)
+export interface Food { id: string; name: string; kcal: number; p: number; c: number; f: number; portions: Portion[]; source: string } // por 100 g/ml
+export interface Item { foodId?: string; name: string; grams: number; kcal: number; p: number; c: number; f: number } // foodId: permite editar depois
 export interface Meal { id: string; name: string; items: Item[] } // um lançamento (refeição cadastrada, alimento ou só kcal)
 export interface Template { id: string; name: string; items: { foodId: string; grams: number }[] }
 export interface DayLog { weight: number | null; meals: Meal[] }
@@ -41,9 +42,15 @@ export function targets(p: FitProfile, weight = p.weight) {
 export type Targets = ReturnType<typeof targets>;
 
 // ---------- alimentos ----------
-export function itemFor(food: Pick<Food, 'name' | 'kcal' | 'p' | 'c' | 'f'>, grams: number): Item {
+export function itemFor(food: Pick<Food, 'name' | 'kcal' | 'p' | 'c' | 'f'> & { id?: string }, grams: number): Item {
   const k = grams / 100;
-  return { name: food.name, grams, kcal: r(food.kcal * k), p: r1(food.p * k), c: r1(food.c * k), f: r1(food.f * k) };
+  return { foodId: food.id, name: food.name, grams, kcal: r(food.kcal * k), p: r1(food.p * k), c: r1(food.c * k), f: r1(food.f * k) };
+}
+
+/** Alimentos salvos antes das porções múltiplas tinham `portion` (uma só). */
+export function migrateFood(f: Food & { portion?: Portion | null }): Food {
+  const { portion, ...rest } = f;
+  return { ...rest, portions: f.portions ?? (portion ? [portion] : []) };
 }
 export function dayTotals(d: DayLog | undefined) {
   const t = { kcal: 0, p: 0, c: 0, f: 0, meals: d?.meals.length ?? 0 };
@@ -91,6 +98,21 @@ export function adherence(days: Days, end: string, t: Targets) {
   return { kcalHit, protHit, logged, avgMeals: logged ? r1(meals / logged) : 0 };
 }
 
+/** Ids de alimentos usados recentemente (mais recente primeiro): ordenam a grade do modal. */
+export function recentFoodIds(days: Days, end: string, lookback = 30) {
+  const out: string[] = [];
+  for (const { log } of lastDays(days, end, lookback).reverse())
+    for (const m of [...(log?.meals ?? [])].reverse())
+      for (const it of m.items) if (it.foodId && !out.includes(it.foodId)) out.push(it.foodId);
+  return out;
+}
+
+/** Peso no primeiro registro (para "desde o início"). */
+export function firstWeight(days: Days): { date: string; weight: number } | null {
+  const k = Object.keys(days).filter(d => typeof days[d]?.weight === 'number').sort()[0];
+  return k ? { date: k, weight: days[k].weight! } : null;
+}
+
 /** Último peso registrado até `end` (para o − / + já partir dele). */
 export function lastWeight(days: Days, end: string): number | null {
   const k = Object.keys(days).filter(d => d <= end && typeof days[d]?.weight === 'number').sort().pop();
@@ -112,21 +134,22 @@ export function recentItems(days: Days, end: string, n = 6, lookback = 21) {
   return out;
 }
 
-// ---------- banco inicial (por 100 g; valores aproximados da Tabela TACO — edite à vontade) ----------
-const t = (name: string, kcal: number, p: number, c: number, f: number, portion: Food['portion'] = null): Food =>
-  ({ id: `taco-${name}`, name, kcal, p, c, f, portion, source: 'TACO (aprox.)' });
+// ---------- banco inicial (por 100 g; valores aproximados da Tabela TACO e porções caseiras médias — edite à vontade) ----------
+const t = (name: string, kcal: number, p: number, c: number, f: number, portions: Portion[] = []): Food =>
+  ({ id: `taco-${name}`, name, kcal, p, c, f, portions, source: 'TACO (aprox.)' });
+const P = (name: string, grams: number): Portion => ({ name, grams });
 export const SEED_FOODS: Food[] = [
-  t('Arroz branco cozido', 128, 2.5, 28.1, 0.2),
-  t('Arroz integral cozido', 124, 2.6, 25.8, 1.0),
-  t('Feijão carioca cozido', 76, 4.8, 13.6, 0.5),
-  t('Peito de frango grelhado', 159, 32.0, 0, 2.5),
-  t('Patinho bovino grelhado', 219, 35.9, 0, 7.3),
-  t('Ovo cozido', 146, 13.3, 0.6, 9.5, { name: '1 ovo', grams: 50 }),
-  t('Batata-doce cozida', 77, 0.6, 18.4, 0.1),
-  t('Aveia em flocos', 394, 13.9, 66.6, 8.5),
-  t('Pão francês', 300, 8.0, 58.6, 3.1, { name: '1 pão', grams: 50 }),
-  t('Banana prata', 98, 1.3, 26.0, 0.1),
-  t('Abacate', 96, 1.2, 6.0, 8.4),
-  t('Azeite de oliva', 884, 0, 0, 100, { name: '1 colher de sopa', grams: 8 }),
-  t('Castanha-do-pará', 643, 14.5, 15.1, 63.5),
+  t('Arroz branco cozido', 128, 2.5, 28.1, 0.2, [P('colher de sopa', 25), P('escumadeira', 90)]),
+  t('Arroz integral cozido', 124, 2.6, 25.8, 1.0, [P('colher de sopa', 25), P('escumadeira', 90)]),
+  t('Feijão carioca cozido', 76, 4.8, 13.6, 0.5, [P('concha', 80), P('colher de sopa', 20)]),
+  t('Peito de frango grelhado', 159, 32.0, 0, 2.5, [P('filé', 100)]),
+  t('Patinho bovino grelhado', 219, 35.9, 0, 7.3, [P('bife', 100)]),
+  t('Ovo cozido', 146, 13.3, 0.6, 9.5, [P('ovo', 50)]),
+  t('Batata-doce cozida', 77, 0.6, 18.4, 0.1, [P('unidade média', 130)]),
+  t('Aveia em flocos', 394, 13.9, 66.6, 8.5, [P('colher de sopa', 15)]),
+  t('Pão francês', 300, 8.0, 58.6, 3.1, [P('pão', 50)]),
+  t('Banana prata', 98, 1.3, 26.0, 0.1, [P('unidade', 60)]),
+  t('Abacate', 96, 1.2, 6.0, 8.4, [P('colher de sopa', 30)]),
+  t('Azeite de oliva', 884, 0, 0, 100, [P('colher de sopa', 13)]),
+  t('Castanha-do-pará', 643, 14.5, 15.1, 63.5, [P('unidade', 4)]),
 ];
