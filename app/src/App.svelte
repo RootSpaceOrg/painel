@@ -6,11 +6,15 @@
   import Settings from './components/Settings.svelte';
   import UpdateToast from './components/UpdateToast.svelte';
   import { schedule } from './lib/update.svelte';
+  import { fitUi } from './lib/fit.svelte';
+  import FitLogModal from './components/FitLogModal.svelte';
+  import FitWeightModal from './components/FitWeightModal.svelte';
 
   boot();
   schedule();
 
   function key(e: KeyboardEvent) {
+    if (fitUi.log || fitUi.weight) return; // os modais da Academia tratam o próprio teclado
     if (e.key === 'Escape') {
       if (ui.expanded) ui.expanded = null;
       else if (ui.settings) ui.settings = false;
@@ -38,6 +42,8 @@
   {#if ui.expanded}<Expanded />{/if}
   {#if ui.settings}<Settings />{/if}
   <UpdateToast />
+  {#if fitUi.log}<FitLogModal />{/if}
+  {#if fitUi.weight}<FitWeightModal />{/if}
 </main>
 
 <style>

@@ -15,9 +15,10 @@ Depois de instalado, o Painel avisa no topo da tela quando sai versão nova (e h
 - **Clique no título de um widget** (ou no relógio) para expandir em tela cheia; `Esc` fecha.
 - **Abas**: dock embaixo; `←`/`→` ou `1`–`9` trocam.
 - **Editar layout**: lápis no dock → arraste os cards, redimensione pelo canto, `+ widget`, `+ aba`, renomeie a aba no próprio dock.
-- **Academia** (aba própria): quanto falta de calorias e proteína no dia (números grandes), peso com − / +, lançamentos de um
-  toque (refeições cadastradas e itens recentes), gráfico do peso com média de 7 dias e metas simples (33 kcal/kg ±5–10%,
-  proteína 1,6–2,2 g/kg). Banco de alimentos (TACO aproximada + busca no Open Food Facts).
+- **Academia** (aba própria): anel de calorias (quanto falta) e anéis de proteína/carbo/gordura, com ‹ › para outros dias;
+  **Lançar refeição** abre um modal para marcar vários alimentos (gramas, porções caseiras, − / +) ou usar refeições salvas,
+  buscar online (Open Food Facts) ou cadastrar na hora; **Registrar peso** abre um teclado numérico. Peso com variação
+  semanal e desde o início, lista do que foi comido (toque para editar) e metas pelo método 33 kcal/kg ±5–10%.
 - **Engrenagem**: monitor/tela cheia, wallpaper, escurecer/desfoque, agendas ICS, Spotify.
 - Fechar a janela só esconde. Sair: ícone na bandeja.
 

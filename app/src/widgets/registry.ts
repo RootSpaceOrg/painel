@@ -11,7 +11,7 @@ import Bluetooth from './Bluetooth.svelte';
 import FitToday from './FitToday.svelte';
 import FitWeek from './FitWeek.svelte';
 import FitPlan from './FitPlan.svelte';
-import FitFoods from './FitFoods.svelte';
+import FitEaten from './FitEaten.svelte';
 
 // Novo widget = um componente com prop `expanded` + uma linha aqui.
 export interface WidgetDef { label: string; comp: Component<{ expanded?: boolean }>; size: [number, number]; min: [number, number]; bare?: boolean; immersive?: boolean }
@@ -24,8 +24,8 @@ export const WIDGETS: Record<WidgetType, WidgetDef> = {
   hardware: { label: 'Sistema', comp: Hardware, size: [6, 3], min: [3, 2] },
   mixer: { label: 'Volume', comp: Mixer, size: [3, 3], min: [2, 2] },
   bluetooth: { label: 'Bluetooth', comp: Bluetooth, size: [3, 2], min: [2, 2] },
-  fitToday: { label: 'Hoje · comida e peso', comp: FitToday, size: [6, 8], min: [4, 5] },
-  fitWeek: { label: 'Peso', comp: FitWeek, size: [6, 4], min: [3, 3] },
+  fitToday: { label: 'Hoje', comp: FitToday, size: [5, 8], min: [4, 6] },
+  fitWeek: { label: 'Peso', comp: FitWeek, size: [7, 4], min: [4, 3] },
+  fitEaten: { label: 'Comido', comp: FitEaten, size: [4, 4], min: [3, 3] },
   fitPlan: { label: 'Metas', comp: FitPlan, size: [3, 4], min: [3, 3] },
-  fitFoods: { label: 'Alimentos e refeições', comp: FitFoods, size: [3, 4], min: [2, 2] },
 };
